@@ -97,7 +97,7 @@ export default function App() {
     bankName: "TimoBank",
     bankAccount: "0945405234",
     bankBranch: "Chi nhánh Hà Nội",
-    qrCodeUrl: "https://api.vietqr.io/image/970436-1133668899-qr_only.png?accountName=DOAN%2520TRUONG%252520XUAN&amount=1000000"
+    qrCodeUrl: "https://api.vietqr.io/image/970454-0945405234-qr_only.png?accountName=DOAN%20TRUONG%20XUAN"
   };
 
   const brideInfo: WeddingCoupleInfo = {
@@ -111,7 +111,7 @@ export default function App() {
     bankName: "Vietcombank",
     bankAccount: "1027558429",
     bankBranch: "Chi nhánh Đà Nẵng",
-    qrCodeUrl: "https://api.vietqr.io/image/970422-9988776655-qr_only.png?accountName=LE%2520BICH%2520TRAM&amount=1000000"
+    qrCodeUrl: "https://api.vietqr.io/image/970436-1027558429-qr_only.png?accountName=LE%20BICH%20TRAM"
   };
 
   const weddingDateTimestamp = new Date("2026-07-12T11:00:00").getTime();
@@ -326,9 +326,9 @@ export default function App() {
           {/* 🏛️ ELegant Tall Roman Arch Framing the Pre-Wedding photo 🏛️ */}
           <div className="relative mt-8 sm:mt-10 w-[270px] sm:w-[360px] md:w-[410px] aspect-[2/3] rounded-t-[135px] sm:rounded-t-[180px] md:rounded-t-[205px] overflow-hidden border-[6px] sm:border-[8px] border-white shadow-2xl z-20 bg-stone-100 transition-all duration-500 hover:scale-[1.01] hover:shadow-3xl">
             <img 
-              src="/image/anhbia.jpg" 
+              src="image/anhbia.jpg" 
               alt="Ảnh bìa cưới Trường Xuân và Bích Trâm" 
-              className="w-full h-full object-contain filter brightness-[97%] transition-transform duration-700"
+              className="w-full h-full object-cover filter brightness-[97%] transition-transform duration-700"
               referrerPolicy="no-referrer"
               onError={(e) => {
                 e.currentTarget.src = "https://images.unsplash.com/photo-1519741497674-611481863552?w=1000&auto=format&fit=crop";

@@ -74,10 +74,13 @@ export default function WeddingGifts({ groom, bride }: WeddingGiftsProps) {
                     {/* VietQR code image container */}
                     <div className="bg-stone-50/50 p-4 rounded-xl border border-stone-150 inline-block mb-4 shadow-inner">
                       <img 
-                        src="/public/image/QR_chure.jpg" 
+                        src={groom.qrCodeUrl} 
                         alt="Mã QR Chuyển Khoản Chú Rể" 
                         className="w-40 h-40 object-contain mx-auto rounded-lg shadow border border-stone-200"
                         referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          e.currentTarget.src = "image/QR_chure.jpg";
+                        }}
                       />
                     </div>
 
@@ -116,10 +119,13 @@ export default function WeddingGifts({ groom, bride }: WeddingGiftsProps) {
                     {/* VietQR code image container */}
                     <div className="bg-stone-50/50 p-4 rounded-xl border border-stone-150 inline-block mb-4 shadow-inner">
                       <img 
-                        src="/public/image/QR_codau.jpg" 
+                        src={bride.qrCodeUrl} 
                         alt="Mã QR Chuyển Khoản Cô Dâu" 
                         className="w-40 h-40 object-contain mx-auto rounded-lg shadow border border-stone-200"
                         referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          e.currentTarget.src = "image/QR_codau.jpg";
+                        }}
                       />
                     </div>
 
