@@ -176,6 +176,8 @@ export default function PhotoAlbum() {
                 src={img.url} 
                 alt={img.title}
                 fallbackSrc={FALLBACK_IMAGES[img.url]}
+                width={400}
+                quality={70}
                 className="group-hover:scale-108 transition-all duration-700"
               />
               
@@ -248,6 +250,8 @@ export default function PhotoAlbum() {
                 alt={ALBUM_IMAGES[activeImageIdx].title} 
                 fallbackSrc={FALLBACK_IMAGES[ALBUM_IMAGES[activeImageIdx].url]}
                 loading="eager"
+                width={1200}
+                quality={85}
                 className="object-contain"
                 containerClassName="rounded-xl shadow-2xl border border-white/5"
               />

@@ -392,6 +392,8 @@ export default function App() {
               alt="Ảnh bìa cưới Trường Xuân và Bích Trâm" 
               fallbackSrc="https://images.unsplash.com/photo-1519741497674-611481863552?w=1000&auto=format&fit=crop"
               loading="eager"
+              width={800}
+              quality={85}
               className="filter brightness-[97%] animate-ken-burns"
               fetchPriority="high"
             />
