@@ -3,9 +3,9 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
   return {
-    base: process.env.NODE_ENV === 'production' ? '/wedding_invitation/' : '/', // Ensures correct assets loading for deployment on GitHub Pages
+    base: mode === 'production' ? '/wedding_invitation/' : '/', // Ensures correct assets loading for deployment on GitHub Pages
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
