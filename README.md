@@ -13,15 +13,13 @@ Dự án thiệp cưới trực tuyến của bạn đã được cấu hình ho
 4. Để chế độ **Public** (Bắt buộc phải công khai để sử dụng GitHub Pages miễn phí).
 5. Nhấp **Create repository** (Giữ nguyên các tùy chọn khác, không tích chọn thêm README hay .gitignore mới).
 
-### Bước 2: Cập nhật đường dẫn trang web trong `package.json`
-Mở tệp `package.json` và thay đổi dòng `"homepage"` (dòng số 6) thành URL của bạn:
-```json
-"homepage": "https://<TÊN_TÀI_KHOẢN_GITHUB>.github.io/<TÊN_REPOSITORY_CỦA_BẠN>"
-```
-*Ví dụ:* Nếu tên tài khoản GitHub của bạn là `heodang200-art` và tên Repository là `Wedding-Inv`, dòng đó sẽ là:
-```json
-"homepage": "https://heodang200-art.github.io/Wedding-Inv"
-```
+### Bước 2: Đường dẫn trang web của bạn đã được cấu hình sẵn!
+Để thuận tiện nhất cho bạn, tôi đã trực tiếp cập nhật cấu hình:
+- Trong `package.json`, trường `"homepage"` đã được đặt chính xác thành: `"https://dtrxuan.github.io/wedding_invitation/"`.
+- Trong `vite.config.ts`, trường `base` đã được cấu hình tự động nhận dạng: khi biên dịch sản phẩm để tải lên GitHub, nó sẽ trỏ chính xác về thư mục con `'/wedding_invitation/'`.
+
+> **💡 Tại sao trang GitHub của bạn lại bị hiển thị màu trắng trước đó?**
+> Vì cấu hình cũ sử dụng đường dẫn tương đối hoặc chưa khớp chính xác với tên Repository `wedding_invitation` trên GitHub, khiến trình duyệt tìm kiếm tài nguyên ở trang chủ `https://dtrxuan.github.io/assets/...` thay vì `https://dtrxuan.github.io/wedding_invitation/assets/...`. Việc điều chỉnh này đã sửa tận gốc lỗi trên!
 
 ---
 

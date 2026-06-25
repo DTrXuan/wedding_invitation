@@ -5,7 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    base: './', // Ensures relative assets loading for easy deployment on GitHub Pages
+    base: process.env.NODE_ENV === 'production' ? '/wedding_invitation/' : '/', // Ensures correct assets loading for deployment on GitHub Pages
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
