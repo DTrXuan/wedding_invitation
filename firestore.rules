@@ -40,22 +40,40 @@ service cloud.firestore {
         && data.guestCount is int && data.guestCount >= 0 && data.guestCount <= 20
         && data.side in ['bride', 'groom', 'both']
         && data.get('phone', '') is string && data.get('phone', '').size() <= 30
-        && data.get('wishes', '') is string && data.get('wishes', '').size() <= 2000
         && data.get('dietaryNotes', '') is string && data.get('dietaryNotes', '').size() <= 1000;
+    }
+
+    // Helper to validate public wedding wishes (Guestbook)
+    function isValidWish(data) {
+      return data.keys().hasAll(['name', 'wishes'])
+        && data.keys().size() <= 4
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 150
+        && data.wishes is string && data.wishes.size() > 0 && data.wishes.size() <= 2000;
     }
 
     // Rules for RSVPs collection
     match /rsvps/{rsvpId} {
-      // Allowed actions:
-      // - Anyone can create an RSVP if they submit a valid payload, and their ID is valid.
-      // - ONLY the Admin can read, list, update or delete RSVPs.
-      // This protects guest privacy so their phone numbers and private wishes/PII are insulated.
-      
+      // Anyone can create an RSVP (confirm attendance)
       allow create: if isValidId(rsvpId) 
         && isValidRSVP(incoming())
         && incoming().createdAt == request.time;
         
+      // Only the Admin can read, list, update or delete RSVPs to protect guest privacy
       allow read, update, delete: if isAdmin();
+    }
+
+    // Rules for Wishes collection (Guestbook)
+    match /wishes/{wishId} {
+      // Anyone can read wishes (public guestbook wall)
+      allow read: if true;
+
+      // Anyone can post a wish
+      allow create: if isValidId(wishId)
+        && isValidWish(incoming())
+        && incoming().createdAt == request.time;
+
+      // Only the Admin can edit or delete wishes (for moderation)
+      allow update, delete: if isAdmin();
     }
   }
 }

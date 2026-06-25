@@ -19,7 +19,7 @@ export default function WeddingCeremonyInfo({
   groomName = "Đoàn Trường Xuân",
   brideName = "Lê Bích Trâm",
   groomRole = "TRƯỞNG NAM",
-  brideRole = "ÚT NỮ"
+  brideRole = "QUÝ NỮ"
 }: CeremonyInfoProps) {
   return (
     <div className="py-10 px-4 bg-white text-stone-800">

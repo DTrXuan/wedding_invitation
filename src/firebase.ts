@@ -23,7 +23,7 @@ import {
   getDocFromServer
 } from 'firebase/firestore';
 import firebaseConfig from './firebase-applet-config.json';
-import { RSVPSubmission } from './types';
+import { RSVPSubmission, WishSubmission } from './types';
 
 // Check if Firebase is configured with real credentials
 export const isFirebaseConfigured = 
@@ -156,5 +156,40 @@ export function deleteLocalRSVP(id: string): RSVPSubmission[] {
   const list = getLocalRSVPs();
   const filtered = list.filter(r => r.id !== id);
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(filtered));
+  return filtered;
+}
+
+const LOCAL_WISHES_KEY = 'vietnamese_wedding_wishes_real_v1';
+
+export function getLocalWishes(): WishSubmission[] {
+  const data = localStorage.getItem(LOCAL_WISHES_KEY);
+  if (!data) {
+    const defaultWishes: WishSubmission[] = [];
+    localStorage.setItem(LOCAL_WISHES_KEY, JSON.stringify(defaultWishes));
+    return defaultWishes;
+  }
+  try {
+    return JSON.parse(data);
+  } catch (e) {
+    return [];
+  }
+}
+
+export function saveLocalWish(wish: Omit<WishSubmission, 'id' | 'createdAt'>): WishSubmission {
+  const list = getLocalWishes();
+  const newWish: WishSubmission = {
+    ...wish,
+    id: 'wish_' + Math.random().toString(36).substring(2, 11),
+    createdAt: new Date().toISOString()
+  };
+  list.unshift(newWish);
+  localStorage.setItem(LOCAL_WISHES_KEY, JSON.stringify(list));
+  return newWish;
+}
+
+export function deleteLocalWish(id: string): WishSubmission[] {
+  const list = getLocalWishes();
+  const filtered = list.filter(w => w.id !== id);
+  localStorage.setItem(LOCAL_WISHES_KEY, JSON.stringify(filtered));
   return filtered;
 }

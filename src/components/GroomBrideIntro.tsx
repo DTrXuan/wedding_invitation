@@ -1,5 +1,6 @@
 import { Heart } from 'lucide-react';
 import { WeddingCoupleInfo } from '../types';
+import OptimizedImage from './OptimizedImage';
 
 interface IntroProps {
   groom: WeddingCoupleInfo;
@@ -27,14 +28,12 @@ export default function GroomBrideIntro({ groom, bride }: IntroProps) {
         <div className="flex flex-col items-center text-center">
           {/* Circular avatar container */}
           <div className="w-28 h-28 sm:w-44 sm:h-44 rounded-full p-1 border-2 border-[#C39B62]/50 shadow-lg overflow-hidden bg-white shrink-0">
-            <img 
+            <OptimizedImage 
               src={groom.avatar} 
               alt="Chú rể" 
-              className="w-full h-full object-cover rounded-full filter brightness-95 scale-102 hover:scale-108 transition-transform duration-500"
-              referrerPolicy="no-referrer"
-              onError={(e) => {
-                e.currentTarget.src = "https://images.unsplash.com/photo-1519741497674-611481863552?w=500&auto=format&fit=crop&q=80";
-              }}
+              fallbackSrc="https://images.unsplash.com/photo-1519741497674-611481863552?w=500&auto=format&fit=crop&q=80"
+              className="rounded-full filter brightness-95 scale-102 hover:scale-108 transition-transform duration-500"
+              containerClassName="rounded-full"
             />
           </div>
           
@@ -53,14 +52,12 @@ export default function GroomBrideIntro({ groom, bride }: IntroProps) {
         <div className="flex flex-col items-center text-center">
           {/* Circular avatar container */}
           <div className="w-28 h-28 sm:w-44 sm:h-44 rounded-full p-1 border-2 border-[#C39B62]/50 shadow-lg overflow-hidden bg-white shrink-0">
-            <img 
+            <OptimizedImage 
               src={bride.avatar} 
               alt="Cô dâu" 
-              className="w-full h-full object-cover rounded-full filter brightness-95 scale-102 hover:scale-108 transition-transform duration-500"
-              referrerPolicy="no-referrer"
-              onError={(e) => {
-                e.currentTarget.src = "https://images.unsplash.com/photo-1549417229-aa67d3263c09?w=500&auto=format&fit=crop&q=80";
-              }}
+              fallbackSrc="https://images.unsplash.com/photo-1549417229-aa67d3263c09?w=500&auto=format&fit=crop&q=80"
+              className="rounded-full filter brightness-95 scale-102 hover:scale-108 transition-transform duration-500"
+              containerClassName="rounded-full"
             />
           </div>
           

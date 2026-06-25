@@ -16,19 +16,29 @@ import GuestManager from './components/GuestManager';
 import MusicPlayer from './components/MusicPlayer';
 import LiveSchedule from './components/LiveSchedule';
 import { WeddingCoupleInfo } from './types';
+import OptimizedImage from './components/OptimizedImage';
 
 export default function App() {
   const [invitedGuest, setInvitedGuest] = useState<string>('');
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [currentPage, setCurrentPage] = useState<'invitation' | 'schedule'>('invitation');
   const [isCardOpened, setIsCardOpened] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(true);
 
   // Parse custom invitee parameter '?to=name'
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const toParam = params.get('to');
+    const adminParam = params.get('admin');
     if (toParam) {
       setInvitedGuest(toParam);
+      if (adminParam === 'true' || window.location.hash === '#admin') {
+        setShowAdminPanel(true);
+      } else {
+        setShowAdminPanel(false);
+      }
+    } else {
+      setShowAdminPanel(true);
     }
 
     // Scroll top monitor
@@ -44,6 +54,10 @@ export default function App() {
         window.scrollTo({ top: 0 });
       } else {
         setCurrentPage('invitation');
+      }
+
+      if (window.location.hash === '#admin') {
+        setShowAdminPanel(true);
       }
     };
     handleHashChange(); // Run once at load
@@ -210,14 +224,31 @@ export default function App() {
               </div>
 
               {/* Glowing "Mở thiệp" button matching the exact design and hover effects */}
-              <div className="pt-4">
-                <button
+              <div className="pt-6 relative flex flex-col items-center">
+                <motion.button
                   id="btn-open-envelope"
                   onClick={handleOpenCard}
-                  className="cursor-pointer px-12 py-3 bg-[#E8EFE9] text-[#0B2D1B] font-sans font-bold rounded-full text-xs uppercase tracking-widest shadow-[0_0_20px_rgba(232,239,233,0.3)] hover:shadow-[0_0_30px_rgba(232,239,233,0.55)] hover:scale-105 active:scale-95 transition-all duration-300 ring-2 ring-white/10"
+                  animate={{
+                    scale: [1, 1.04, 1],
+                    boxShadow: [
+                      "0 0 15px rgba(232, 239, 233, 0.25)",
+                      "0 0 35px rgba(250, 242, 229, 0.6)",
+                      "0 0 15px rgba(232, 239, 233, 0.25)"
+                    ],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                  whileHover={{ scale: 1.1, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="cursor-pointer px-16 py-4 bg-gradient-to-r from-[#FAF2E5] via-[#E8EFE9] to-[#FAF2E5] text-[#0B2D1B] font-sans font-extrabold rounded-full text-sm uppercase tracking-[0.25em] shadow-[0_0_25px_rgba(232,239,233,0.35)] transition-all duration-300 ring-4 ring-white/15 hover:ring-amber-200/40 relative z-10"
                 >
                   Mở thiệp
-                </button>
+                </motion.button>
+                {/* Decorative subtle radiating waves behind the button */}
+                <span className="absolute w-44 h-12 bg-[#E8EFE9]/10 rounded-full animate-ping pointer-events-none opacity-40"></span>
               </div>
             </div>
             
@@ -307,7 +338,7 @@ export default function App() {
             {/* Bride side */}
             <div className="col-span-4 text-left space-y-1">
               <span className="text-[#CDE4DB]/75 font-serif text-[10px] sm:text-xs tracking-wider font-light block uppercase">
-                Út Nữ
+                Quý Nữ
               </span>
               <h2 className="font-serif text-lg sm:text-2xl md:text-3xl font-bold text-white tracking-wide uppercase leading-tight">
                 Bích Trâm
@@ -325,14 +356,13 @@ export default function App() {
 
           {/* 🏛️ ELegant Tall Roman Arch Framing the Pre-Wedding photo 🏛️ */}
           <div className="relative mt-8 sm:mt-10 w-[270px] sm:w-[360px] md:w-[410px] aspect-[2/3] rounded-t-[135px] sm:rounded-t-[180px] md:rounded-t-[205px] overflow-hidden border-[6px] sm:border-[8px] border-white shadow-2xl z-20 bg-stone-100 transition-all duration-500 hover:scale-[1.01] hover:shadow-3xl">
-            <img 
+            <OptimizedImage 
               src="image/anhbia.jpg" 
               alt="Ảnh bìa cưới Trường Xuân và Bích Trâm" 
-              className="w-full h-full object-cover filter brightness-[97%] transition-transform duration-700"
-              referrerPolicy="no-referrer"
-              onError={(e) => {
-                e.currentTarget.src = "https://images.unsplash.com/photo-1519741497674-611481863552?w=1000&auto=format&fit=crop";
-              }}
+              fallbackSrc="https://images.unsplash.com/photo-1519741497674-611481863552?w=1000&auto=format&fit=crop"
+              loading="eager"
+              className="filter brightness-[97%] transition-transform duration-700"
+              fetchPriority="high"
             />
           </div>
 
@@ -428,13 +458,11 @@ export default function App() {
         <WeddingGifts groom={groomInfo} bride={brideInfo} />
       </section>
 
-      {/* UTILITY: SHARE CARD INVITATION GENERATOR & ADMIN GUEST MANAGER */}
-      {!invitedGuest && (
-        <>
-          <ShareInvitation />
-          <GuestManager />
-        </>
-      )}
+      {/* UTILITY: SHARE CARD INVITATION GENERATOR */}
+      {!invitedGuest && <ShareInvitation />}
+
+      {/* ADMIN GUEST MANAGER - strictly gated via URL hashtag or parameter */}
+      {showAdminPanel && <GuestManager />}
 
       {/* 8. FOOTER - GRATITUDE COUPLERS */}
       <footer className="bg-stone-900 text-stone-400 py-16 px-4 border-t border-stone-850 text-center select-none relative overflow-hidden">

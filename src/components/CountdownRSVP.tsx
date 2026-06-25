@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 
 // Import our database and service handles
-import { db, saveLocalRSVP, isFirebaseConfigured, handleFirestoreError, OperationType } from '../firebase';
+import { db, saveLocalRSVP, saveLocalWish, isFirebaseConfigured, handleFirestoreError, OperationType } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { WeddingEventDetails } from '../types';
 
@@ -113,12 +113,27 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
             ...payload,
             createdAt: serverTimestamp()
           });
+
+          // Concurrently save the wish to the public wishes board if any
+          if (wishes.trim()) {
+            await addDoc(collection(db, 'wishes'), {
+              name: name.trim(),
+              wishes: wishes.trim(),
+              createdAt: serverTimestamp()
+            });
+          }
         } catch (error) {
           handleFirestoreError(error, OperationType.CREATE, path);
         }
       } else {
         // Fallback to offline Local Storage Mockengine
         saveLocalRSVP(payload);
+        if (wishes.trim()) {
+          saveLocalWish({
+            name: name.trim(),
+            wishes: wishes.trim()
+          });
+        }
       }
 
       // Success
@@ -385,13 +400,13 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
               {/* Form / Content inside Modal */}
               <div className="p-6 sm:p-8 overflow-y-auto select-none">
                 {!isSubmitted ? (
-                  <form onSubmit={handleSubmit} className="space-y-6">
+                  <form onSubmit={handleSubmit} className="space-y-5">
                     {/* Header */}
-                    <div className="text-center sm:text-left pt-2">
-                      <h3 className="font-sans text-2xl font-bold text-stone-900 tracking-tight mb-2">
+                    <div className="text-center sm:text-left pt-1">
+                      <h3 className="font-sans text-2xl font-bold text-stone-900 tracking-tight mb-1">
                         Xác nhận tham dự
                       </h3>
-                      <p className="text-stone-500 text-xs sm:text-xs leading-relaxed font-light">
+                      <p className="text-stone-500 text-xs leading-relaxed font-light">
                         Sự hiện diện của bạn là niềm vinh hạnh cho gia đình chúng tôi. Xin xác nhận để chúng tôi chuẩn bị chu đáo nhất.
                       </p>
                     </div>
@@ -400,7 +415,7 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <label className="block text-xs font-bold text-stone-700 tracking-wide uppercase">
-                          Tên của bạn
+                          Họ và tên của bạn
                         </label>
                         {name && name === invitedGuest && (
                           <span className="text-[10px] text-green-700 font-bold bg-green-50 px-2 py-0.5 rounded-full animate-pulse">
@@ -413,9 +428,51 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
                         required
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="Nhập tên của bạn"
-                        className="w-full px-4 py-3.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8C9C95]/20 focus:border-[#8C9C95] font-medium placeholder-stone-400 transition-all text-stone-800 animate-fade-in"
+                        placeholder="Ví dụ: Nguyễn Văn A"
+                        className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8C9C95]/20 focus:border-[#8C9C95] font-medium placeholder-stone-400 transition-all text-stone-800"
                       />
+                    </div>
+
+                    {/* Input: Số điện thoại */}
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-stone-700 tracking-wide uppercase">
+                        Số điện thoại (Liên hệ khi cần)
+                      </label>
+                      <input
+                        type="tel"
+                        inputMode="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                        placeholder="Nhập số điện thoại của bạn"
+                        className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8C9C95]/20 focus:border-[#8C9C95] font-mono font-medium placeholder-stone-400 transition-all text-stone-800"
+                      />
+                    </div>
+
+                    {/* Radio-Style side selection */}
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-stone-700 tracking-wide uppercase">
+                        Bạn là khách phía nào?
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { id: 'groom', label: 'Chú Rể' },
+                          { id: 'bride', label: 'Cô Dâu' },
+                          { id: 'both', label: 'Cả Hai' }
+                        ].map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => setSide(item.id as any)}
+                            className={`py-2.5 px-1 rounded-xl text-xs font-semibold text-center border transition-all cursor-pointer ${
+                              side === item.id
+                                ? 'border-[#8C9C95] bg-[#8C9C95]/10 text-[#0B2D1B] font-bold ring-1 ring-[#8C9C95]'
+                                : 'border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100'
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Attendance Selection: Bạn sẽ đến chứ? */}
@@ -424,28 +481,28 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
                         Bạn sẽ đến chứ?
                       </label>
                       
-                      <div className="space-y-2.5">
+                      <div className="grid grid-cols-2 gap-3">
                         {/* Option: Tôi sẽ đến */}
                         <button
                           type="button"
                           onClick={() => {
                             setAttendance('yes');
-                            setGuestCount(1);
+                            if (guestCount === 0) setGuestCount(1);
                           }}
-                          className={`w-full flex items-center gap-3.5 p-4 rounded-xl text-left transition-all cursor-pointer border ${
+                          className={`flex items-center justify-center gap-2 py-3 rounded-xl text-center transition-all cursor-pointer border ${
                             attendance === 'yes'
-                              ? 'border-[#8C9C95] bg-[#8C9C95]/5 text-stone-900 font-bold shadow-sm'
+                              ? 'border-[#8C9C95] bg-[#8C9C95]/5 text-stone-900 font-bold shadow-xs'
                               : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
                           }`}
                         >
-                          <div className={`w-5 h-5 rounded-full flex items-center justify-center border transition-all ${
+                          <div className={`w-4 h-4 rounded-full flex items-center justify-center border transition-all ${
                             attendance === 'yes'
-                              ? 'bg-[#8C9C95] border-[#8C9C95] text-white animate-scale-up'
+                              ? 'bg-[#8C9C95] border-[#8C9C95] text-white'
                               : 'border-stone-300 bg-white text-transparent'
                           }`}>
-                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            <Check className="w-3 h-3 stroke-[3]" />
                           </div>
-                          <span className="text-sm font-semibold">Tôi sẽ đến</span>
+                          <span className="text-xs font-semibold">Tôi sẽ đến</span>
                         </button>
 
                         {/* Option: Rất tiếc, tôi không thể đến */}
@@ -455,22 +512,77 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
                             setAttendance('no');
                             setGuestCount(0);
                           }}
-                          className={`w-full flex items-center gap-3.5 p-4 rounded-xl text-left transition-all cursor-pointer border ${
+                          className={`flex items-center justify-center gap-2 py-3 rounded-xl text-center transition-all cursor-pointer border ${
                             attendance === 'no'
-                              ? 'border-[#8C9C95] bg-[#8C9C95]/5 text-stone-900 font-bold shadow-sm'
+                              ? 'border-rose-300 bg-rose-50/50 text-stone-900 font-bold shadow-xs'
                               : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
                           }`}
                         >
-                          <div className={`w-5 h-5 rounded-full flex items-center justify-center border transition-all ${
+                          <div className={`w-4 h-4 rounded-full flex items-center justify-center border transition-all ${
                             attendance === 'no'
-                              ? 'bg-rose-500 border-rose-500 text-white animate-scale-up'
+                              ? 'bg-rose-500 border-rose-500 text-white'
                               : 'border-stone-300 bg-white text-transparent'
                           }`}>
-                            <X className="w-3.5 h-3.5 stroke-[3]" />
+                            <X className="w-3 h-3 stroke-[3]" />
                           </div>
-                          <span className="text-sm font-semibold">Rất tiếc, tôi không thể đến</span>
+                          <span className="text-xs font-semibold">Rất tiếc</span>
                         </button>
                       </div>
+                    </div>
+
+                    {/* Conditional inputs based on attendance */}
+                    {attendance === 'yes' && (
+                      <div className="space-y-4 pt-1">
+                        {/* Mobile Optimized Guest Count plus/minus control */}
+                        <div className="space-y-2 bg-stone-50 p-4 rounded-2xl border border-stone-200/60">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs font-bold text-stone-700 tracking-wide uppercase">Số lượng người đi cùng</span>
+                            <span className="text-xs font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">{guestCount} người</span>
+                          </div>
+                          <div className="flex items-center justify-center gap-6 py-1">
+                            <button
+                              type="button"
+                              disabled={guestCount <= 1}
+                              onClick={() => setGuestCount(prev => Math.max(1, prev - 1))}
+                              className="w-10 h-10 rounded-full bg-white border border-stone-250 flex items-center justify-center text-stone-600 font-bold hover:bg-stone-100 active:scale-90 transition-all shadow-xs cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
+                            >
+                              -
+                            </button>
+                            <span className="text-lg font-serif font-extrabold text-[#0B2D1B] w-12 text-center">{guestCount}</span>
+                            <button
+                              type="button"
+                              onClick={() => setGuestCount(prev => Math.min(10, prev + 1))}
+                              className="w-10 h-10 rounded-full bg-white border border-stone-250 flex items-center justify-center text-stone-600 font-bold hover:bg-stone-100 active:scale-90 transition-all shadow-xs cursor-pointer"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Dietary Notes */}
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-stone-700 tracking-wide uppercase">Yêu cầu ăn uống đặc biệt (nếu có)</label>
+                          <input
+                            type="text"
+                            value={dietaryNotes}
+                            onChange={(e) => setDietaryNotes(e.target.value)}
+                            placeholder="Ví dụ: Ăn chay, dị ứng hải sản..."
+                            className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8C9C95]/20 focus:border-[#8C9C95] font-medium placeholder-stone-400 transition-all text-stone-800"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Warm Wishes */}
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-stone-700 tracking-wide uppercase">Lời chúc gửi tới hai bạn</label>
+                      <textarea
+                        rows={3}
+                        value={wishes}
+                        onChange={(e) => setWishes(e.target.value)}
+                        placeholder="Gửi những lời chúc ấm áp nhất tới Trường Xuân & Bích Trâm..."
+                        className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8C9C95]/20 focus:border-[#8C9C95] font-medium placeholder-stone-400 transition-all text-stone-800 resize-none"
+                      />
                     </div>
 
                     {submitError && (
@@ -481,7 +593,7 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full py-4 mt-6 bg-[#8C9C95] hover:bg-[#7D8D86] text-white disabled:bg-stone-300 disabled:text-stone-500 font-sans font-bold rounded-xl text-sm tracking-wide shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
+                      className="w-full py-4 mt-6 bg-[#0B2D1B] hover:bg-[#071D11] text-amber-100 disabled:bg-stone-300 disabled:text-stone-500 font-sans font-bold rounded-xl text-sm tracking-wide shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
                     >
                       {isSubmitting ? 'ĐANG GỬI XÁC NHẬN...' : 'Gửi xác nhận'}
                     </button>

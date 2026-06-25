@@ -13,6 +13,9 @@ import {
   saveLocalRSVP, 
   updateLocalRSVP, 
   deleteLocalRSVP,
+  getLocalWishes,
+  saveLocalWish,
+  deleteLocalWish,
   handleFirestoreError,
   OperationType
 } from '../firebase';
@@ -25,15 +28,19 @@ import {
   onSnapshot 
 } from 'firebase/firestore';
 import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth';
-import { RSVPSubmission } from '../types';
+import { RSVPSubmission, WishSubmission } from '../types';
 
 export default function GuestManager() {
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [passcode, setPasscode] = useState('');
   const [passcodeError, setPasscodeError] = useState(false);
   
+  // Tab alignment
+  const [activeTab, setActiveTab] = useState<'rsvps' | 'wishes'>('rsvps');
+
   // Data list states
   const [rsvps, setRsvps] = useState<RSVPSubmission[]>([]);
+  const [wishes, setWishes] = useState<WishSubmission[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncCount, setSyncCount] = useState(0);
 
@@ -44,14 +51,15 @@ export default function GuestManager() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sideFilter, setSideFilter] = useState<'all' | 'bride' | 'groom' | 'both'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'yes' | 'no' | 'maybe'>('all');
+  const [wishSearchQuery, setWishSearchQuery] = useState('');
 
   // Load Auth state
   useEffect(() => {
     if (isFirebaseConfigured && auth) {
       const unsubscribe = onAuthStateChanged(auth, (user) => {
         setCurrentUser(user);
-        // If user is verified admin (matching email)
-        if (user && user.email === 'heodang200@gmail.com') {
+        // If user is verified admin (matching email Dtruongxuan1397@gmail.com)
+        if (user && user.email === 'Dtruongxuan1397@gmail.com') {
           setIsAdminUnlocked(true);
         }
       });
@@ -104,6 +112,42 @@ export default function GuestManager() {
     }
   }, [isAdminUnlocked, syncCount]);
 
+  // Fetch or bind Wishes
+  useEffect(() => {
+    if (!isAdminUnlocked) return;
+
+    if (isFirebaseConfigured && db) {
+      const path = 'wishes';
+      const wishesRef = collection(db, path);
+      
+      const unsubscribe = onSnapshot(wishesRef, (snapshot) => {
+        const list: WishSubmission[] = [];
+        snapshot.forEach((docSnap) => {
+          const d = docSnap.data();
+          list.push({
+            id: docSnap.id,
+            name: d.name || '',
+            wishes: d.wishes || '',
+            createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : d.createdAt || new Date().toISOString()
+          } as WishSubmission);
+        });
+        
+        // Sort wishes by createdAt date descending
+        list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setWishes(list);
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, path);
+      });
+
+      return unsubscribe;
+    } else {
+      // Fallback local storage
+      const localWishes = getLocalWishes();
+      localWishes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setWishes(localWishes);
+    }
+  }, [isAdminUnlocked, syncCount]);
+
   // Handle local/passcode sign in
   const handlePasscodeUnlock = (e: FormEvent) => {
     e.preventDefault();
@@ -121,10 +165,10 @@ export default function GuestManager() {
     const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
-      if (result.user && result.user.email === 'heodang200@gmail.com') {
+      if (result.user && result.user.email === 'Dtruongxuan1397@gmail.com') {
         setIsAdminUnlocked(true);
       } else {
-        alert('Tài khoản này không có quyền quản lý đám cưới. Vui lòng đăng nhập với heodang200@gmail.com hoặc sử dụng mã khoá dự phòng.');
+        alert('Tài khoản này không có quyền quản lý đám cưới. Vui lòng đăng nhập với Dtruongxuan1397@gmail.com hoặc sử dụng mã khoá dự phòng.');
         await signOut(auth);
       }
     } catch (err) {
@@ -156,20 +200,36 @@ export default function GuestManager() {
     }
   };
 
+  // Delete Guest Wish
+  const handleDeleteWish = async (id: string) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa lời chúc này không?')) return;
+
+    if (isFirebaseConfigured && db) {
+      try {
+        await deleteDoc(doc(db, 'wishes', id));
+      } catch (err) {
+        alert('Lỗi khi xóa lời chúc.');
+      }
+    } else {
+      const filtered = deleteLocalWish(id);
+      setWishes(filtered);
+    }
+  };
+
   // Load default Mock Guest for testing
   const handleAddMockGuest = () => {
     const names = [
       'Lê Tuấn Hải', 'Phan Văn Hải', 'Trịnh Đình Quang', 'Đỗ Mỹ Linh', 
       'Nguyễn Ngọc Diệp', 'Tạ Duy Anh', 'Gia đình Bác Sáu', 'Vợ chồng Chú Đồng'
     ];
-    const wishes = [
+    const wishesText = [
       'Chúc hai bạn trăm năm hạnh phúc, rổ rá cạp lại thật viên mãn!',
       'Gia đình bác chúc hai cháu luôn yêu thương nhau như ngày đầu.',
       'Sớm sinh em bé nhé Thanh Như và Lê Nguyên ơi. Tiệc cưới đỉnh quá!',
       'Yêu nhau vững bền nhé hai em của chị.'
     ];
     const randomName = names[Math.floor(Math.random() * names.length)];
-    const randomWish = wishes[Math.floor(Math.random() * wishes.length)];
+    const randomWish = wishesText[Math.floor(Math.random() * wishesText.length)];
     const randomSide = ['bride', 'groom', 'both'][Math.floor(Math.random() * 3)] as any;
     const randomStatus = ['yes', 'no', 'maybe'][Math.floor(Math.random() * 3)] as any;
 
@@ -189,6 +249,12 @@ export default function GuestManager() {
       alert('Vui lòng sử dụng Form "Xác Nhận Tham Dự" ở trên để gửi dữ liệu trực tiếp lên Live Firestore!');
     } else {
       saveLocalRSVP(payload);
+      if (randomWish) {
+        saveLocalWish({
+          name: randomName,
+          wishes: randomWish
+        });
+      }
       setSyncCount(c => c + 1);
     }
   };
@@ -200,8 +266,10 @@ export default function GuestManager() {
       return;
     }
     if (confirm('Xóa sạch danh sách giả lập và đưa về trống?')) {
-      localStorage.removeItem('vietnamese_wedding_rsvps');
+      localStorage.removeItem('vietnamese_wedding_rsvps_real_v1');
+      localStorage.removeItem('vietnamese_wedding_wishes_real_v1');
       setRsvps([]);
+      setWishes([]);
     }
   };
 
@@ -318,7 +386,7 @@ export default function GuestManager() {
               </div>
 
               {passcodeError && (
-                <p className="text-red-500 text-[10px] font-medium">Mã khoá không chính xác. Hãy nhập: <b>truongxuan2026</b> </p>
+                <p className="text-red-500 text-[10px] font-medium">Mã khoá không chính xác. Vui lòng kiểm tra và thử lại!</p>
               )}
 
               <button
@@ -423,157 +491,269 @@ export default function GuestManager() {
               </div>
             </div>
 
-            {/* List and Filter controls board */}
-            <div className="bg-white border border-stone-200 rounded-3xl p-4 md:p-6 shadow-xs space-y-4">
-              
-              {/* Filter controls row */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                
-                {/* Search field */}
-                <div className="relative flex-1 max-w-sm">
-                  <Search className="absolute left-3 top-2.5 w-4.5 h-4.5 text-stone-400" />
-                  <input
-                    id="input-search-guest"
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Tìm kiếm theo tên khách, SĐT..."
-                    className="w-full pl-9 pr-4 py-2 bg-stone-50 border border-stone-200 focus:border-stone-400 rounded-xl text-xs focus:outline-none text-stone-800"
-                  />
-                </div>
+            {/* Tabs control row */}
+            <div className="flex border-b border-stone-200">
+              <button
+                id="btn-tab-rsvps"
+                onClick={() => setActiveTab('rsvps')}
+                className={`py-3 px-6 text-xs font-semibold tracking-wider uppercase border-b-2 transition-all cursor-pointer ${
+                  activeTab === 'rsvps'
+                    ? 'border-amber-600 text-amber-650 font-bold'
+                    : 'border-transparent text-stone-500 hover:text-stone-850'
+                }`}
+              >
+                Danh sách xác nhận (RSVP)
+              </button>
+              <button
+                id="btn-tab-wishes"
+                onClick={() => setActiveTab('wishes')}
+                className={`py-3 px-6 text-xs font-semibold tracking-wider uppercase border-b-2 transition-all cursor-pointer ${
+                  activeTab === 'wishes'
+                    ? 'border-amber-600 text-amber-650 font-bold'
+                    : 'border-transparent text-stone-500 hover:text-stone-850'
+                }`}
+              >
+                Danh sách lời chúc (Wishes)
+              </button>
+            </div>
 
-                {/* Dropdown filters alignment */}
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-1.5 text-xs text-stone-500">
-                    <Filter className="w-3.5 h-3.5" /> Phân Loại:
+            {/* List and Filter controls board for RSVPs */}
+            {activeTab === 'rsvps' && (
+              <div className="bg-white border border-stone-200 rounded-3xl p-4 md:p-6 shadow-xs space-y-4">
+                
+                {/* Filter controls row */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  
+                  {/* Search field */}
+                  <div className="relative flex-1 max-w-sm">
+                    <Search className="absolute left-3 top-2.5 w-4.5 h-4.5 text-stone-400" />
+                    <input
+                      id="input-search-guest"
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Tìm kiếm theo tên khách, SĐT..."
+                      className="w-full pl-9 pr-4 py-2 bg-stone-50 border border-stone-200 focus:border-stone-400 rounded-xl text-xs focus:outline-none text-stone-800"
+                    />
                   </div>
 
-                  {/* Side filter dropdown */}
-                  <select
-                    id="select-filter-side"
-                    value={sideFilter}
-                    onChange={(e: any) => setSideFilter(e.target.value)}
-                    className="px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs focus:outline-none text-stone-800"
-                  >
-                    <option value="all">Mọi Bên Nhà</option>
-                    <option value="bride">Bên Cô Dâu</option>
-                    <option value="groom">Bên Chú Rể</option>
-                    <option value="both">Cả hai phía</option>
-                  </select>
+                  {/* Dropdown filters alignment */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-1.5 text-xs text-stone-500">
+                      <Filter className="w-3.5 h-3.5" /> Phân Loại:
+                    </div>
 
-                  {/* Attendance status dropdown */}
-                  <select
-                    id="select-filter-status"
-                    value={statusFilter}
-                    onChange={(e: any) => setStatusFilter(e.target.value)}
-                    className="px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs focus:outline-none text-stone-800"
-                  >
-                    <option value="all">Mọi trạng thái</option>
-                    <option value="yes">Sẽ Tham dự</option>
-                    <option value="maybe">Có Thể</option>
-                    <option value="no">Bất Khả Kháng</option>
-                  </select>
+                    {/* Side filter dropdown */}
+                    <select
+                      id="select-filter-side"
+                      value={sideFilter}
+                      onChange={(e: any) => setSideFilter(e.target.value)}
+                      className="px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs focus:outline-none text-stone-800"
+                    >
+                      <option value="all">Mọi Bên Nhà</option>
+                      <option value="bride">Bên Cô Dâu</option>
+                      <option value="groom">Bên Chú Rể</option>
+                      <option value="both">Cả hai phía</option>
+                    </select>
 
-                  {/* Export Trigger */}
-                  <button
-                    id="btn-export-excel"
-                    disabled={filteredRSVPs.length === 0}
-                    onClick={handleExportCSV}
-                    className="px-3.5 py-1.5 bg-stone-900 hover:bg-stone-800 disabled:bg-stone-100 disabled:text-stone-400 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all shrink-0 cursor-pointer border border-stone-300"
-                  >
-                    <Download className="w-3.5 h-3.5" /> Xuất File Excel (CSV)
-                  </button>
+                    {/* Attendance status dropdown */}
+                    <select
+                      id="select-filter-status"
+                      value={statusFilter}
+                      onChange={(e: any) => setStatusFilter(e.target.value)}
+                      className="px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs focus:outline-none text-stone-800"
+                    >
+                      <option value="all">Mọi trạng thái</option>
+                      <option value="yes">Sẽ Tham dự</option>
+                      <option value="maybe">Có Thể</option>
+                      <option value="no">Bất Khả Kháng</option>
+                    </select>
+
+                    {/* Export Trigger */}
+                    <button
+                      id="btn-export-excel"
+                      disabled={filteredRSVPs.length === 0}
+                      onClick={handleExportCSV}
+                      className="px-3.5 py-1.5 bg-stone-900 hover:bg-stone-800 disabled:bg-stone-100 disabled:text-stone-400 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all shrink-0 cursor-pointer border border-stone-300"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Xuất File Excel (CSV)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Guests RSVP detailed Table */}
+                <div className="overflow-x-auto rounded-xl border border-stone-200">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-stone-50 text-stone-500 border-b border-stone-200 uppercase font-mono tracking-wider">
+                        <th className="py-3 px-4 font-normal">Họ Tên Khách</th>
+                        <th className="py-3 px-4 font-normal">SĐT Bảo Mật</th>
+                        <th className="py-3 px-4 font-normal">Xác Nhận</th>
+                        <th className="py-3 px-4 font-normal">Sĩ Số</th>
+                        <th className="py-3 px-4 font-normal">Phía Gửi</th>
+                        <th className="py-3 px-4 font-normal">Yêu cầu ăn / Lời Chúc</th>
+                        <th className="py-3 px-4 font-normal text-center">Hành Động</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-200 font-light">
+                      {loading ? (
+                        <tr>
+                          <td colSpan={7} className="text-center py-8 text-stone-400 font-mono">Đang nạp danh sách dữ liệu...</td>
+                        </tr>
+                      ) : filteredRSVPs.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="text-center py-8 text-stone-400 font-mono">Không tìm thấy vị khách nào trùng khớp.</td>
+                        </tr>
+                      ) : (
+                        filteredRSVPs.map((r) => (
+                          <tr key={r.id} className="hover:bg-stone-50 transition-all text-stone-850">
+                            <td className="py-3 md:py-4 px-4 font-semibold text-stone-800">
+                              {r.name}
+                            </td>
+                            <td className="py-3 md:py-4 px-4 font-mono text-[11px] text-stone-500">
+                              {r.phone || '—'}
+                            </td>
+                            <td className="py-3 md:py-4 px-4">
+                              {r.attendance === 'yes' ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  Sẽ đi
+                                </span>
+                              ) : r.attendance === 'maybe' ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                  Có thể
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-600 border border-red-200">
+                                  Tiếc quá
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 md:py-4 px-4 font-bold font-mono text-stone-800">
+                              {r.attendance === 'yes' ? r.guestCount : '0'}
+                            </td>
+                            <td className="py-3 md:py-4 px-4">
+                              {r.side === 'bride' ? (
+                                <span className="text-rose-700 font-semibold">Bên Cô Dâu</span>
+                              ) : r.side === 'groom' ? (
+                                <span className="text-indigo-700 font-semibold">Bên Chú Rể</span>
+                              ) : (
+                                <span className="text-amber-700 font-semibold">Chung (Cả 2)</span>
+                              )}
+                            </td>
+                            <td className="py-3 md:py-4 px-4 max-w-[200px] truncate-2-lines text-stone-500 font-light text-[11px] leading-relaxed">
+                              {r.dietaryNotes && (
+                                <div className="mb-0.5"><b className="text-[10px] text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-250 uppercase">Ăn uống:</b> <span className="text-stone-700">{r.dietaryNotes}</span></div>
+                              )}
+                              {r.wishes ? `"${r.wishes}"` : <span className="text-stone-400 font-serif italic">Không gửi lời chúc</span>}
+                            </td>
+                            <td className="py-3 md:py-4 px-4 text-center shrink">
+                              <button
+                                id={`btn-delete-row-${r.id}`}
+                                onClick={() => handleDelete(r.id)}
+                                className="p-1 px-1.5 hover:bg-stone-100 hover:text-red-600 transition-colors rounded-lg text-stone-400"
+                                title="Xóa vị khách này"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Bottom total status strip */}
+                <div className="flex justify-between items-center text-[11px] text-stone-400 font-mono py-1.5">
+                  <span>Hiện {filteredRSVPs.length} sản phẩm trùng khớp</span>
+                  <span>An toàn dữ liệu SSL mã hoá đỉnh cao</span>
                 </div>
               </div>
+            )}
 
-              {/* Guests RSVP detailed Table */}
-              <div className="overflow-x-auto rounded-xl border border-stone-200">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-stone-50 text-stone-500 border-b border-stone-200 uppercase font-mono tracking-wider">
-                      <th className="py-3 px-4 font-normal">Họ Tên Khách</th>
-                      <th className="py-3 px-4 font-normal">SĐT Bảo Mật</th>
-                      <th className="py-3 px-4 font-normal">Xác Nhận</th>
-                      <th className="py-3 px-4 font-normal">Sĩ Số</th>
-                      <th className="py-3 px-4 font-normal">Phía Gửi</th>
-                      <th className="py-3 px-4 font-normal">Yêu cầu ăn / Lời Chúc</th>
-                      <th className="py-3 px-4 font-normal text-center">Hành Động</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-stone-200 font-light">
-                    {loading ? (
-                      <tr>
-                        <td colSpan={7} className="text-center py-8 text-stone-400 font-mono">Đang nạp danh sách dữ liệu...</td>
+            {/* List and Filter controls board for Wedding Wishes */}
+            {activeTab === 'wishes' && (
+              <div className="bg-white border border-stone-200 rounded-3xl p-4 md:p-6 shadow-xs space-y-4">
+                
+                {/* Filter controls row */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  {/* Search field */}
+                  <div className="relative flex-1 max-w-sm">
+                    <Search className="absolute left-3 top-2.5 w-4.5 h-4.5 text-stone-400" />
+                    <input
+                      id="input-search-wish"
+                      type="text"
+                      value={wishSearchQuery}
+                      onChange={(e) => setWishSearchQuery(e.target.value)}
+                      placeholder="Tìm kiếm theo tên người gửi, nội dung lời chúc..."
+                      className="w-full pl-9 pr-4 py-2 bg-stone-50 border border-stone-200 focus:border-stone-400 rounded-xl text-xs focus:outline-none text-stone-800"
+                    />
+                  </div>
+                </div>
+
+                {/* Wishes detailed Table */}
+                <div className="overflow-x-auto rounded-xl border border-stone-200">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-stone-50 text-stone-500 border-b border-stone-200 uppercase font-mono tracking-wider">
+                        <th className="py-3 px-4 font-normal">Họ Tên Khách</th>
+                        <th className="py-3 px-4 font-normal">Lời Chúc Gửi Tặng</th>
+                        <th className="py-3 px-4 font-normal">Thời Gian Gửi</th>
+                        <th className="py-3 px-4 font-normal text-center">Hành Động</th>
                       </tr>
-                    ) : filteredRSVPs.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="text-center py-8 text-stone-400 font-mono">Không tìm thấy vị khách nào trùng khớp.</td>
-                      </tr>
-                    ) : (
-                      filteredRSVPs.map((r) => (
-                        <tr key={r.id} className="hover:bg-stone-50 transition-all text-stone-850">
-                          <td className="py-3 md:py-4 px-4 font-semibold text-stone-800">
-                            {r.name}
-                          </td>
-                          <td className="py-3 md:py-4 px-4 font-mono text-[11px] text-stone-500">
-                            {r.phone || '—'}
-                          </td>
-                          <td className="py-3 md:py-4 px-4">
-                            {r.attendance === 'yes' ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                Sẽ đi
-                              </span>
-                            ) : r.attendance === 'maybe' ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                                Có thể
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-600 border border-red-200">
-                                Tiếc quá
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3 md:py-4 px-4 font-bold font-mono text-stone-800">
-                            {r.attendance === 'yes' ? r.guestCount : '0'}
-                          </td>
-                          <td className="py-3 md:py-4 px-4">
-                            {r.side === 'bride' ? (
-                              <span className="text-rose-700 font-semibold">Bên Cô Dâu</span>
-                            ) : r.side === 'groom' ? (
-                              <span className="text-indigo-700 font-semibold">Bên Chú Rể</span>
-                            ) : (
-                              <span className="text-amber-700 font-semibold">Chung (Cả 2)</span>
-                            )}
-                          </td>
-                          <td className="py-3 md:py-4 px-4 max-w-[200px] truncate-2-lines text-stone-500 font-light text-[11px] leading-relaxed">
-                            {r.dietaryNotes && (
-                              <div className="mb-0.5"><b className="text-[10px] text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-250 uppercase">Ăn uống:</b> <span className="text-stone-700">{r.dietaryNotes}</span></div>
-                            )}
-                            {r.wishes ? `"${r.wishes}"` : <span className="text-stone-400 font-serif italic">Không gửi lời chúc</span>}
-                          </td>
-                          <td className="py-3 md:py-4 px-4 text-center shrink">
-                            <button
-                              id={`btn-delete-row-${r.id}`}
-                              onClick={() => handleDelete(r.id)}
-                              className="p-1 px-1.5 hover:bg-stone-100 hover:text-red-600 transition-colors rounded-lg text-stone-400"
-                              title="Xóa vị khách này"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
+                    </thead>
+                    <tbody className="divide-y divide-stone-200 font-light">
+                      {wishes.filter(w => {
+                        return w.name.toLowerCase().includes(wishSearchQuery.toLowerCase()) ||
+                          w.wishes.toLowerCase().includes(wishSearchQuery.toLowerCase());
+                      }).length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="text-center py-8 text-stone-400 font-mono">Không tìm thấy lời chúc nào trùng khớp.</td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      ) : (
+                        wishes
+                          .filter(w => {
+                            return w.name.toLowerCase().includes(wishSearchQuery.toLowerCase()) ||
+                              w.wishes.toLowerCase().includes(wishSearchQuery.toLowerCase());
+                          })
+                          .map((w) => (
+                            <tr key={w.id} className="hover:bg-stone-50 transition-all text-stone-850">
+                              <td className="py-3 md:py-4 px-4 font-semibold text-stone-800 whitespace-nowrap">
+                                {w.name}
+                              </td>
+                              <td className="py-3 md:py-4 px-4 text-stone-600 font-light max-w-lg leading-relaxed whitespace-pre-line">
+                                "{w.wishes}"
+                              </td>
+                              <td className="py-3 md:py-4 px-4 font-mono text-[11px] text-stone-500 whitespace-nowrap">
+                                {new Date(w.createdAt).toLocaleString('vi-VN')}
+                              </td>
+                              <td className="py-3 md:py-4 px-4 text-center shrink">
+                                <button
+                                  id={`btn-delete-wish-${w.id}`}
+                                  onClick={() => handleDeleteWish(w.id)}
+                                  className="p-1 px-1.5 hover:bg-stone-100 hover:text-red-600 transition-colors rounded-lg text-stone-400"
+                                  title="Xóa lời chúc này"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
 
-              {/* Bottom total status strip */}
-              <div className="flex justify-between items-center text-[11px] text-stone-400 font-mono py-1.5">
-                <span>Hiện {filteredRSVPs.length} sản phẩm trùng khớp</span>
-                <span>An toàn dữ liệu SSL mã hoá đỉnh cao</span>
+                {/* Bottom total status strip */}
+                <div className="flex justify-between items-center text-[11px] text-stone-400 font-mono py-1.5">
+                  <span>Hiện {wishes.filter(w => {
+                    return w.name.toLowerCase().includes(wishSearchQuery.toLowerCase()) ||
+                      w.wishes.toLowerCase().includes(wishSearchQuery.toLowerCase());
+                  }).length} lời chúc trùng khớp</span>
+                  <span>An toàn dữ liệu SSL mã hoá đỉnh cao</span>
+                </div>
               </div>
-            </div>
+            )}
 
           </div>
         )}

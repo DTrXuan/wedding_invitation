@@ -55,3 +55,10 @@ export interface ScheduleItem {
   eventType?: 'ceremony' | 'reception';
 }
 
+export interface WishSubmission {
+  id: string;
+  name: string;
+  wishes: string;
+  createdAt: any; // Timestamp or ISO string
+}
+

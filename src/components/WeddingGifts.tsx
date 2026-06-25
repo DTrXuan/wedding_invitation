@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Gift, Copy, Check, Heart } from 'lucide-react';
 import { WeddingCoupleInfo } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import OptimizedImage from './OptimizedImage';
 
 interface WeddingGiftsProps {
   groom: WeddingCoupleInfo;
@@ -73,14 +74,12 @@ export default function WeddingGifts({ groom, bride }: WeddingGiftsProps) {
                     
                     {/* VietQR code image container */}
                     <div className="bg-stone-50/50 p-4 rounded-xl border border-stone-150 inline-block mb-4 shadow-inner">
-                      <img 
+                      <OptimizedImage 
                         src={groom.qrCodeUrl} 
                         alt="Mã QR Chuyển Khoản Chú Rể" 
-                        className="w-40 h-40 object-contain mx-auto rounded-lg shadow border border-stone-200"
-                        referrerPolicy="no-referrer"
-                        onError={(e) => {
-                          e.currentTarget.src = "image/QR_chure.jpg";
-                        }}
+                        fallbackSrc="image/QR_chure.jpg"
+                        className="w-40 h-40 object-contain mx-auto rounded-lg"
+                        containerClassName="w-40 h-40"
                       />
                     </div>
 
@@ -92,8 +91,23 @@ export default function WeddingGifts({ groom, bride }: WeddingGiftsProps) {
                       </div>
                       <div className="flex justify-between items-center border-b border-stone-100 pb-1.5">
                         <span className="text-stone-400">Số tài khoản:</span>
-                        <div className="flex items-center gap-1">
-                          <span className="font-mono font-bold text-stone-900">{groom.bankAccount}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-bold text-stone-900 tracking-wider bg-stone-50 px-2 py-0.5 rounded border border-stone-100 select-all">{groom.bankAccount}</span>
+                          <button
+                            onClick={() => handleCopy(groom.bankAccount, 'groom')}
+                            className="p-2 bg-amber-50 hover:bg-amber-100 active:scale-95 text-amber-700 transition-all rounded-lg cursor-pointer flex items-center justify-center border border-amber-200/50"
+                            title="Sao chép số tài khoản"
+                          >
+                            {copiedState === 'groom' ? (
+                              <span className="flex items-center gap-1 text-[10px] font-bold text-green-700">
+                                <Check className="w-3.5 h-3.5" /> Đã sao chép!
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-[10px] font-bold">
+                                <Copy className="w-3.5 h-3.5" /> Sao chép
+                              </span>
+                            )}
+                          </button>
                         </div>
                       </div>
                       <div className="flex justify-between pb-1.5">
@@ -118,14 +132,12 @@ export default function WeddingGifts({ groom, bride }: WeddingGiftsProps) {
 
                     {/* VietQR code image container */}
                     <div className="bg-stone-50/50 p-4 rounded-xl border border-stone-150 inline-block mb-4 shadow-inner">
-                      <img 
+                      <OptimizedImage 
                         src={bride.qrCodeUrl} 
                         alt="Mã QR Chuyển Khoản Cô Dâu" 
-                        className="w-40 h-40 object-contain mx-auto rounded-lg shadow border border-stone-200"
-                        referrerPolicy="no-referrer"
-                        onError={(e) => {
-                          e.currentTarget.src = "image/QR_codau.jpg";
-                        }}
+                        fallbackSrc="image/QR_codau.jpg"
+                        className="w-40 h-40 object-contain mx-auto rounded-lg"
+                        containerClassName="w-40 h-40"
                       />
                     </div>
 
@@ -137,8 +149,23 @@ export default function WeddingGifts({ groom, bride }: WeddingGiftsProps) {
                       </div>
                       <div className="flex justify-between items-center border-b border-stone-100 pb-1.5">
                         <span className="text-stone-400">Số tài khoản:</span>
-                        <div className="flex items-center gap-1">
-                          <span className="font-mono font-bold text-stone-900">{bride.bankAccount}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-bold text-stone-900 tracking-wider bg-stone-50 px-2 py-0.5 rounded border border-stone-100 select-all">{bride.bankAccount}</span>
+                          <button
+                            onClick={() => handleCopy(bride.bankAccount, 'bride')}
+                            className="p-2 bg-amber-50 hover:bg-amber-100 active:scale-95 text-amber-700 transition-all rounded-lg cursor-pointer flex items-center justify-center border border-amber-200/50"
+                            title="Sao chép số tài khoản"
+                          >
+                            {copiedState === 'bride' ? (
+                              <span className="flex items-center gap-1 text-[10px] font-bold text-green-700">
+                                <Check className="w-3.5 h-3.5" /> Đã sao chép!
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-[10px] font-bold">
+                                <Copy className="w-3.5 h-3.5" /> Sao chép
+                              </span>
+                            )}
+                          </button>
                         </div>
                       </div>
                       <div className="flex justify-between pb-1.5">

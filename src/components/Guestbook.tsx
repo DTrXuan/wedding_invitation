@@ -1,8 +1,8 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { Heart, MessageSquare, Sparkles } from 'lucide-react';
-import { db, isFirebaseConfigured, getLocalRSVPs, saveLocalRSVP, handleFirestoreError, OperationType } from '../firebase';
+import { db, isFirebaseConfigured, getLocalWishes, saveLocalWish, handleFirestoreError, OperationType } from '../firebase';
 import { collection, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
-import { RSVPSubmission } from '../types';
+import { WishSubmission } from '../types';
 import confetti from 'canvas-confetti';
 
 interface GuestbookProps {
@@ -10,7 +10,7 @@ interface GuestbookProps {
 }
 
 export default function Guestbook({ invitedGuest = '' }: GuestbookProps) {
-  const [wishesList, setWishesList] = useState<RSVPSubmission[]>([]);
+  const [wishesList, setWishesList] = useState<WishSubmission[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Form states
@@ -29,27 +29,19 @@ export default function Guestbook({ invitedGuest = '' }: GuestbookProps) {
   useEffect(() => {
     setLoading(true);
     if (isFirebaseConfigured && db) {
-      const path = 'rsvps';
-      const rsvpsRef = collection(db, path);
+      const path = 'wishes';
+      const wishesRef = collection(db, path);
       
-      const unsubscribe = onSnapshot(rsvpsRef, (snapshot) => {
-        const list: RSVPSubmission[] = [];
+      const unsubscribe = onSnapshot(wishesRef, (snapshot) => {
+        const list: WishSubmission[] = [];
         snapshot.forEach((docSnap) => {
           const d = docSnap.data();
-          // Only show submissions that have actual wishes
-          if (d.wishes && d.wishes.trim()) {
-            list.push({
-              id: docSnap.id,
-              name: d.name || '',
-              phone: d.phone || '',
-              attendance: d.attendance || 'yes',
-              guestCount: d.guestCount || 0,
-              side: d.side || 'both',
-              wishes: d.wishes || '',
-              dietaryNotes: d.dietaryNotes || '',
-              createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : d.createdAt || new Date().toISOString()
-            } as RSVPSubmission);
-          }
+          list.push({
+            id: docSnap.id,
+            name: d.name || '',
+            wishes: d.wishes || '',
+            createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : d.createdAt || new Date().toISOString()
+          } as WishSubmission);
         });
         
         // Sort wishes by createdAt date descending
@@ -64,7 +56,7 @@ export default function Guestbook({ invitedGuest = '' }: GuestbookProps) {
       return unsubscribe;
     } else {
       // Fallback local storage
-      const local = getLocalRSVPs().filter(r => r.wishes && r.wishes.trim());
+      const local = getLocalWishes();
       local.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setWishesList(local);
       setLoading(false);
@@ -80,25 +72,20 @@ export default function Guestbook({ invitedGuest = '' }: GuestbookProps) {
 
     const payload = {
       name: name.trim(),
-      phone: '',
-      attendance: 'yes' as const,
-      side: 'both' as const,
-      guestCount: 0,
-      wishes: wishes.trim(),
-      dietaryNotes: ''
+      wishes: wishes.trim()
     };
 
     try {
       if (isFirebaseConfigured && db) {
-        const path = 'rsvps';
+        const path = 'wishes';
         await addDoc(collection(db, path), {
           ...payload,
           createdAt: serverTimestamp()
         });
       } else {
-        saveLocalRSVP(payload);
+        saveLocalWish(payload);
         // Refresh local list
-        const local = getLocalRSVPs().filter(r => r.wishes && r.wishes.trim());
+        const local = getLocalWishes();
         local.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         setWishesList(local);
       }

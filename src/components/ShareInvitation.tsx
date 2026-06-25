@@ -14,13 +14,11 @@ export default function ShareInvitation() {
     : currentDomain;
 
   // Custom greeting template
-  const customMessage = `💍 THIỆP MỜI ĐÁM CƯỚI ONLINE 💍
+  const guestDisplay = guestName.trim() || 'Quý khách';
+  const customMessage = `Vì điều kiện làm việc xa, không kịp đưa thiệp mời tận tay đến ${guestDisplay}, nên vợ chồng Trường Xuân & Bích Trâm xin được gửi thiệp mời online.
 
-Trân trọng kính mời: ${guestName.trim() || 'Quý khách'}
+${guestDisplay} nhấn vào link để cùng theo dõi ngày cưới, địa điểm để tiện đến tham dự chung vui với vợ chồng Trường Xuân & Bích Trâm nhé.
 
-Trường Xuân & Bích Trâm rất vinh hạnh và kính mời sự có mặt đồng hành cùng ngày vui trọng đại cưới hỏi của chúng tôi. Sự hiện diện của bạn là niềm hạnh phúc lớn nhất của đại gia đình!
-
-👉 Xin vui lòng xem đầy đủ sơ đồ đường đi Nhà Trai/Nhà Gái, Album ảnh cưới lãng mạn và gửi phản hồi xác nhận tham dự (RSVP) tại link thiệp điện tử bảo mật sau nhé:
 🔗 ${invitationUrl}
 
 Trân trọng kính mời! ❤️`;

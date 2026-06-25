@@ -2,7 +2,7 @@
   "entities": {
     "RSVP": {
       "title": "RSVP",
-      "description": "Thông tin khách mời xác nhận tham dự và gửi lời chúc đám cưới",
+      "description": "Thông tin khách mời xác nhận tham dự đám cưới",
       "type": "object",
       "properties": {
         "name": {
@@ -25,10 +25,6 @@
           "type": "string",
           "description": "Bên phía: 'bride' (Cô dâu), 'groom' (Chú rể), 'both' (Cả hai)"
         },
-        "wishes": {
-          "type": "string",
-          "description": "Lời chúc gửi tới cô dâu chú rể"
-        },
         "dietaryNotes": {
           "type": "string",
           "description": "Ghi chú món ăn hoặc yêu cầu đặc biệt"
@@ -45,12 +41,40 @@
         "guestCount",
         "side"
       ]
+    },
+    "Wish": {
+      "title": "Wish",
+      "description": "Lời chúc của khách mời gửi tới cặp đôi",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Tên người gửi lời chúc"
+        },
+        "wishes": {
+          "type": "string",
+          "description": "Lời chúc gửi tới cô dâu chú rể"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời gian gửi lời chúc"
+        }
+      },
+      "required": [
+        "name",
+        "wishes"
+      ]
     }
   },
   "firestore": {
     "rsvps/{rsvpId}": {
       "schema": "RSVP",
       "description": "Danh sách khách xác nhận tham dự"
+    },
+    "wishes/{wishId}": {
+      "schema": "Wish",
+      "description": "Danh sách lời chúc của khách mời"
     }
   }
 }

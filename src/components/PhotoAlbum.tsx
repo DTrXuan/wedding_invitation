@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Camera, Eye, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import OptimizedImage from './OptimizedImage';
 
 const PREDEFINED_TITLES: Record<string, string> = {
   'image/Album.jpg': 'Nắm Tay Nhau Đi Suốt Cuộc Đời',
@@ -171,15 +172,11 @@ export default function PhotoAlbum() {
               className="group relative rounded-2xl overflow-hidden aspect-[3/4] bg-stone-100 border-2 border-amber-500/10 shadow-md cursor-pointer hover:shadow-xl transition-all duration-500 hover:-translate-y-1 hover:border-[#C39B62]/40"
             >
               {/* Image */}
-              <img 
+              <OptimizedImage 
                 src={img.url} 
                 alt={img.title}
-                className="w-full h-full object-cover filter brightness-95 group-hover:scale-108 transition-all duration-700" 
-                referrerPolicy="no-referrer"
-                onError={(e) => {
-                  const fb = FALLBACK_IMAGES[img.url];
-                  if (fb) e.currentTarget.src = fb;
-                }}
+                fallbackSrc={FALLBACK_IMAGES[img.url]}
+                className="group-hover:scale-108 transition-all duration-700"
               />
               
               {isLastItem ? (
@@ -246,16 +243,34 @@ export default function PhotoAlbum() {
             </button>
 
             <div className="max-w-4xl max-h-[70vh] w-full h-full flex flex-col justify-center items-center relative z-10 mx-auto">
-              <img 
+              <OptimizedImage 
                 src={ALBUM_IMAGES[activeImageIdx].url} 
                 alt={ALBUM_IMAGES[activeImageIdx].title} 
-                className="max-w-full max-h-full object-contain rounded-xl shadow-2xl border border-white/5"
-                referrerPolicy="no-referrer"
-                onError={(e) => {
-                  const fb = FALLBACK_IMAGES[ALBUM_IMAGES[activeImageIdx].url];
-                  if (fb) e.currentTarget.src = fb;
-                }}
+                fallbackSrc={FALLBACK_IMAGES[ALBUM_IMAGES[activeImageIdx].url]}
+                loading="eager"
+                className="object-contain"
+                containerClassName="rounded-xl shadow-2xl border border-white/5"
               />
+
+              {/* Preload adjacent images for instant transition */}
+              <div className="hidden" aria-hidden="true">
+                <img 
+                  src={ALBUM_IMAGES[(activeImageIdx + 1) % ALBUM_IMAGES.length].url} 
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    const fb = FALLBACK_IMAGES[ALBUM_IMAGES[(activeImageIdx + 1) % ALBUM_IMAGES.length].url];
+                    if (fb) e.currentTarget.src = fb;
+                  }}
+                />
+                <img 
+                  src={ALBUM_IMAGES[(activeImageIdx - 1 + ALBUM_IMAGES.length) % ALBUM_IMAGES.length].url} 
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    const fb = FALLBACK_IMAGES[ALBUM_IMAGES[(activeImageIdx - 1 + ALBUM_IMAGES.length) % ALBUM_IMAGES.length].url];
+                    if (fb) e.currentTarget.src = fb;
+                  }}
+                />
+              </div>
             </div>
 
             <button
