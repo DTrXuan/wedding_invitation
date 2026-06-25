@@ -326,9 +326,9 @@ export default function App() {
           {/* 🏛️ ELegant Tall Roman Arch Framing the Pre-Wedding photo 🏛️ */}
           <div className="relative mt-8 sm:mt-10 w-[270px] sm:w-[360px] md:w-[410px] aspect-[2/3] rounded-t-[135px] sm:rounded-t-[180px] md:rounded-t-[205px] overflow-hidden border-[6px] sm:border-[8px] border-white shadow-2xl z-20 bg-stone-100 transition-all duration-500 hover:scale-[1.01] hover:shadow-3xl">
             <img 
-              src="/image/anhbia.jpg" 
+              src="image/anhbia.jpg" 
               alt="Ảnh bìa cưới Trường Xuân và Bích Trâm" 
-              className="w-full h-full object-contain filter brightness-[97%] transition-transform duration-700"
+              className="w-full h-full object-cover filter brightness-[97%] transition-transform duration-700"
               referrerPolicy="no-referrer"
               onError={(e) => {
                 e.currentTarget.src = "https://images.unsplash.com/photo-1519741497674-611481863552?w=1000&auto=format&fit=crop";
