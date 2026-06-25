@@ -4,6 +4,7 @@ import {
   Compass, ArrowUp, Milestone, MessageSquareHeart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import confetti from 'canvas-confetti';
 
 // Import subcomponents
 import WeddingCeremonyInfo from './components/WeddingCeremonyInfo';
@@ -83,6 +84,36 @@ export default function App() {
 
   const handleOpenCard = () => {
     setIsCardOpened(true);
+
+    // Fire a magnificent celebratory confetti explosion!
+    confetti({
+      particleCount: 120,
+      spread: 75,
+      origin: { y: 0.6 },
+      colors: ['#C39B62', '#e2b370', '#f1d6ab', '#f59e0b', '#ec4899', '#f43f5e'] // Luxury warm gold, wedding colors, and rose tones
+    });
+    
+    // Staggered elegant side bursts for extra depth and celebration
+    setTimeout(() => {
+      confetti({
+        particleCount: 60,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0, y: 0.85 },
+        colors: ['#C39B62', '#e2b370', '#f59e0b']
+      });
+    }, 200);
+    
+    setTimeout(() => {
+      confetti({
+        particleCount: 60,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1, y: 0.85 },
+        colors: ['#C39B62', '#e2b370', '#f59e0b']
+      });
+    }, 350);
+
     // Programmatically play music after interaction
     setTimeout(() => {
       const playBtn = document.getElementById('btn-play-music');
@@ -361,7 +392,7 @@ export default function App() {
               alt="Ảnh bìa cưới Trường Xuân và Bích Trâm" 
               fallbackSrc="https://images.unsplash.com/photo-1519741497674-611481863552?w=1000&auto=format&fit=crop"
               loading="eager"
-              className="filter brightness-[97%] transition-transform duration-700"
+              className="filter brightness-[97%] animate-ken-burns"
               fetchPriority="high"
             />
           </div>

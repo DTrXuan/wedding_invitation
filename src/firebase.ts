@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
   getAuth, 
@@ -22,16 +23,38 @@ import {
   onSnapshot,
   getDocFromServer
 } from 'firebase/firestore';
-import firebaseConfig from './firebase-applet-config.json';
+declare const __FIREBASE_APPLET_CONFIG__: {
+  projectId?: string;
+  appId?: string;
+  apiKey?: string;
+  authDomain?: string;
+  firestoreDatabaseId?: string;
+  storageBucket?: string;
+  messagingSenderId?: string;
+};
+
 import { RSVPSubmission, WishSubmission } from './types';
+
+// Load values prioritizing Environment Variables, falling back to compile-time injected values
+const activeConfig = {
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.projectId : '') || '',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.appId : '') || '',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.apiKey : '') || '',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.authDomain : '') || '',
+  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.firestoreDatabaseId : '') || 'ai-studio-690599dd-421d-4b5c-bd15-9a21102ee9b1',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.storageBucket : '') || '',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.messagingSenderId : '') || '',
+};
 
 // Check if Firebase is configured with real credentials
 export const isFirebaseConfigured = 
-  firebaseConfig && 
-  firebaseConfig.apiKey && 
-  !firebaseConfig.apiKey.includes('placeholder') &&
-  firebaseConfig.projectId && 
-  !firebaseConfig.projectId.includes('placeholder');
+  activeConfig && 
+  activeConfig.apiKey && 
+  !activeConfig.apiKey.includes('placeholder') &&
+  activeConfig.apiKey !== '' &&
+  activeConfig.projectId && 
+  !activeConfig.projectId.includes('placeholder') &&
+  activeConfig.projectId !== '';
 
 let firebaseApp;
 let firebaseDb: any = null;
@@ -39,13 +62,14 @@ let firebaseAuth: any = null;
 
 if (isFirebaseConfigured) {
   try {
-    firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    firebaseDb = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
+    firebaseApp = getApps().length === 0 ? initializeApp(activeConfig) : getApp();
+    firebaseDb = getFirestore(firebaseApp, activeConfig.firestoreDatabaseId);
     firebaseAuth = getAuth(firebaseApp);
   } catch (error) {
     console.error('Lỗi khởi tạo Firebase:', error);
   }
 }
+
 
 export const db = firebaseDb;
 export const auth = firebaseAuth;
