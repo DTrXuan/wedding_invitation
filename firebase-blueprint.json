@@ -1,0 +1,56 @@
+{
+  "entities": {
+    "RSVP": {
+      "title": "RSVP",
+      "description": "Thông tin khách mời xác nhận tham dự và gửi lời chúc đám cưới",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Tên khách mời"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Số điện thoại khách (bảo mật)"
+        },
+        "attendance": {
+          "type": "string",
+          "description": "Trạng thái tham dự: 'yes' (Tham dự), 'no' (Không tham dự), 'maybe' (Có thể)"
+        },
+        "guestCount": {
+          "type": "integer",
+          "description": "Số lượng người đi cùng"
+        },
+        "side": {
+          "type": "string",
+          "description": "Bên phía: 'bride' (Cô dâu), 'groom' (Chú rể), 'both' (Cả hai)"
+        },
+        "wishes": {
+          "type": "string",
+          "description": "Lời chúc gửi tới cô dâu chú rể"
+        },
+        "dietaryNotes": {
+          "type": "string",
+          "description": "Ghi chú món ăn hoặc yêu cầu đặc biệt"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời gian gửi xác nhận"
+        }
+      },
+      "required": [
+        "name",
+        "attendance",
+        "guestCount",
+        "side"
+      ]
+    }
+  },
+  "firestore": {
+    "rsvps/{rsvpId}": {
+      "schema": "RSVP",
+      "description": "Danh sách khách xác nhận tham dự"
+    }
+  }
+}

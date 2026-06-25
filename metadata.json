@@ -1,0 +1,6 @@
+{
+  "name": "Thiệp Cưới Online",
+  "description": "Ứng dụng gửi thiệp cưới online cao cấp của Trường Xuân & Bích Trâm với tính năng đếm ngược, bản đồ chỉ đường, xác nhận tham dự (RSVP) bảo mật tuyệt đối, nhạc nền, album ảnh cưới lãng mạn và bảng quản trị danh sách khách mời.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

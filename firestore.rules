@@ -1,0 +1,61 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net - Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Modern helper functions for identity, sign in, and formats
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      // Bootstrapped admin using the user's active configuration email
+      return isSignedIn() && 
+        request.auth.token.email_verified == true && 
+        (request.auth.token.email == 'heodang200@gmail.com');
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Helper to validate the RSVP payload shape and constraints
+    function isValidRSVP(data) {
+      return data.keys().hasAll(['name', 'attendance', 'guestCount', 'side']) 
+        && data.keys().size() <= 8
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 150
+        && data.attendance in ['yes', 'no', 'maybe']
+        && data.guestCount is int && data.guestCount >= 0 && data.guestCount <= 20
+        && data.side in ['bride', 'groom', 'both']
+        && data.get('phone', '') is string && data.get('phone', '').size() <= 30
+        && data.get('wishes', '') is string && data.get('wishes', '').size() <= 2000
+        && data.get('dietaryNotes', '') is string && data.get('dietaryNotes', '').size() <= 1000;
+    }
+
+    // Rules for RSVPs collection
+    match /rsvps/{rsvpId} {
+      // Allowed actions:
+      // - Anyone can create an RSVP if they submit a valid payload, and their ID is valid.
+      // - ONLY the Admin can read, list, update or delete RSVPs.
+      // This protects guest privacy so their phone numbers and private wishes/PII are insulated.
+      
+      allow create: if isValidId(rsvpId) 
+        && isValidRSVP(incoming())
+        && incoming().createdAt == request.time;
+        
+      allow read, update, delete: if isAdmin();
+    }
+  }
+}
