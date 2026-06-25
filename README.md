@@ -13,13 +13,12 @@ Dự án thiệp cưới trực tuyến của bạn đã được cấu hình ho
 4. Để chế độ **Public** (Bắt buộc phải công khai để sử dụng GitHub Pages miễn phí).
 5. Nhấp **Create repository** (Giữ nguyên các tùy chọn khác, không tích chọn thêm README hay .gitignore mới).
 
-### Bước 2: Đường dẫn trang web của bạn đã được cấu hình sẵn!
-Để thuận tiện nhất cho bạn, tôi đã trực tiếp cập nhật cấu hình:
-- Trong `package.json`, trường `"homepage"` đã được đặt chính xác thành: `"https://dtrxuan.github.io/wedding_invitation/"`.
-- Trong `vite.config.ts`, trường `base` đã được cấu hình tự động nhận dạng: khi biên dịch sản phẩm để tải lên GitHub, nó sẽ trỏ chính xác về thư mục con `'/wedding_invitation/'`.
+### Bước 2: Đường dẫn trang web của bạn đã được cấu hình tối ưu nhất!
+Để thuận tiện và giải quyết dứt điểm lỗi màn hình trắng, tôi đã trực tiếp cập nhật cấu hình:
+- **Đường dẫn tương đối (`base: './'`)** trong `vite.config.ts`: Giúp toàn bộ tài nguyên (JS, CSS, hình ảnh, nhạc) tải chính xác tuyệt đối mà không cần phụ thuộc cứng vào tên Repository `wedding_invitation` hay cấu hình tên miền riêng.
+- **Tệp loại bỏ bộ lọc Jekyll (`.nojekyll`)** trong thư mục `/public`: Đã được thêm vào và sẽ tự động được sao chép vào thư mục `/dist` khi build. Tệp này thông báo cho máy chủ GitHub Pages bỏ qua trình xử lý Jekyll, giúp toàn bộ mã nguồn React & Vite được tải đầy đủ và nguyên vẹn, sửa tận gốc lỗi trắng màn hình do một số tệp tin bị hệ thống của GitHub chặn.
 
-> **💡 Tại sao trang GitHub của bạn lại bị hiển thị màu trắng trước đó?**
-> Vì cấu hình cũ sử dụng đường dẫn tương đối hoặc chưa khớp chính xác với tên Repository `wedding_invitation` trên GitHub, khiến trình duyệt tìm kiếm tài nguyên ở trang chủ `https://dtrxuan.github.io/assets/...` thay vì `https://dtrxuan.github.io/wedding_invitation/assets/...`. Việc điều chỉnh này đã sửa tận gốc lỗi trên!
+> **⚠️ LƯU Ý QUAN TRỌNG:** Vì các thay đổi này được cập nhật trên công cụ AI Studio, bạn **bắt buộc phải Export/Tải về dự án mới nhất** (hoặc đồng bộ mã nguồn mới nhất từ AI Studio về máy tính của bạn) sau đó thực hiện lệnh **`npm run deploy`** một lần nữa để các cấu hình này được áp dụng và ghi đè phiên bản cũ đang bị lỗi trên GitHub Pages của bạn!
 
 ---
 

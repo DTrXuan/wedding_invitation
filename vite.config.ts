@@ -5,7 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(({ mode }) => {
   return {
-    base: mode === 'production' ? '/wedding_invitation/' : '/', // Ensures correct assets loading for deployment on GitHub Pages
+    base: './', // Ensures relative assets loading for easy deployment on GitHub Pages regardless of repo name
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
