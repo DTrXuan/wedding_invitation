@@ -1,0 +1,67 @@
+name: Deploy to GitHub Pages
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # provide build-time env (secrets) at the job level so debug steps can read presence without exposing values
+    env:
+      VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Debug environment
+        run: |
+          echo "---- node & npm versions ----"
+          node -v
+          npm -v
+          echo
+          echo "---- list root files ----"
+          ls -la
+          echo
+          echo "---- VITE_FIREBASE_API_KEY presence (length) ----"
+          # show length so the secret itself isn't printed
+          sh -lc 'echo -n "$VITE_FIREBASE_API_KEY" | wc -c'
+      - name: Check required secrets
+        run: |
+          if [ -z "${VITE_FIREBASE_API_KEY}" ]; then
+            echo "::error::VITE_FIREBASE_API_KEY is not set. Add it to repository secrets."
+            exit 1
+          fi
+      - name: Build
+        run: npm run build
+        env:
+          # Thêm các biến môi trường app cần (Firebase, Gemini key, v.v.)
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
