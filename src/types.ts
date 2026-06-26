@@ -69,4 +69,18 @@ export interface ViewSubmission {
   clickedAt: any; // Timestamp or ISO string
 }
 
+export interface Guest {
+  id: string;
+  name: string;
+  phone?: string;
+  side?: 'bride' | 'groom' | 'both';
+  viewsCount: number;
+  lastViewedAt?: any; // Timestamp or ISO string
+  views?: Array<{
+    clickedAt: any;
+    userAgent: string;
+  }>;
+}
+
+
 

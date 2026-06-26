@@ -22,7 +22,10 @@ import {
   orderBy, 
   onSnapshot,
   getDocFromServer,
-  serverTimestamp
+  serverTimestamp,
+  where,
+  increment,
+  arrayUnion
 } from 'firebase/firestore';
 declare const __FIREBASE_APPLET_CONFIG__: {
   projectId?: string;
@@ -30,11 +33,12 @@ declare const __FIREBASE_APPLET_CONFIG__: {
   apiKey?: string;
   authDomain?: string;
   firestoreDatabaseId?: string;
+  databaseId?: string;
   storageBucket?: string;
   messagingSenderId?: string;
 };
 
-import { RSVPSubmission, WishSubmission, ViewSubmission } from './types';
+import { RSVPSubmission, WishSubmission, ViewSubmission, Guest } from './types';
 
 // ---------------- CẤU HÌNH FIREBASE CHO GITHUB PAGES / PRODUCTION ----------------
 // Vì các khóa và thông số kết nối của Firebase Client SDK hoàn toàn là công khai (public) 
@@ -52,12 +56,21 @@ const GITHUB_PAGES_FIREBASE_CONFIG = {
 };
 
 // Load values prioritizing Environment Variables, falling back to compile-time injected values and GITHUB_PAGES_FIREBASE_CONFIG
+const rawDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || 
+  (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? (__FIREBASE_APPLET_CONFIG__.firestoreDatabaseId || __FIREBASE_APPLET_CONFIG__.databaseId) : '') || 
+  GITHUB_PAGES_FIREBASE_CONFIG.databaseId || 
+  '';
+
+const resolvedDatabaseId = (rawDatabaseId && rawDatabaseId !== '(default)') 
+  ? rawDatabaseId 
+  : 'ai-studio-thipcitrngxunbch-690599dd-421d-4b5c-bd15-9a21102ee9b1';
+
 const activeConfig = {
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.projectId : '') || GITHUB_PAGES_FIREBASE_CONFIG.projectId || '',
   appId: import.meta.env.VITE_FIREBASE_APP_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.appId : '') || GITHUB_PAGES_FIREBASE_CONFIG.appId || '',
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.apiKey : '') || GITHUB_PAGES_FIREBASE_CONFIG.apiKey || '',
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.authDomain : '') || GITHUB_PAGES_FIREBASE_CONFIG.authDomain || '',
-  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.firestoreDatabaseId : '') || GITHUB_PAGES_FIREBASE_CONFIG.databaseId || '(default)',
+  firestoreDatabaseId: resolvedDatabaseId,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.storageBucket : '') || GITHUB_PAGES_FIREBASE_CONFIG.storageBucket || '',
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.messagingSenderId : '') || GITHUB_PAGES_FIREBASE_CONFIG.messagingSenderId || '',
 };
@@ -79,6 +92,9 @@ let firebaseAuth: any = null;
 if (isFirebaseConfigured) {
   try {
     firebaseApp = getApps().length === 0 ? initializeApp(activeConfig) : getApp();
+    console.log('[Firebase Init] Active Project ID:', activeConfig.projectId);
+    console.log('[Firebase Init] Resolved Database ID:', activeConfig.firestoreDatabaseId);
+    
     if (activeConfig.firestoreDatabaseId && activeConfig.firestoreDatabaseId !== '(default)' && activeConfig.firestoreDatabaseId !== '') {
       firebaseDb = getFirestore(firebaseApp, activeConfig.firestoreDatabaseId);
     } else {
@@ -89,7 +105,6 @@ if (isFirebaseConfigured) {
     console.error('Lỗi khởi tạo Firebase:', error);
   }
 }
-
 
 export const db = firebaseDb;
 export const auth = firebaseAuth;
@@ -299,18 +314,130 @@ export async function trackCardView(guestName: string) {
   const nameToSave = guestName ? guestName.trim() : 'Quý khách ẩn danh';
   try {
     if (isFirebaseConfigured && db) {
+      // 1. Log to general views collection
       await addDocWithTimeout(collection(db, 'views'), {
         guestName: nameToSave,
         userAgent: navigator.userAgent,
         clickedAt: serverTimestamp()
       }, 4000);
+
+      // 2. Log/Update corresponding Guest in guests collection
+      if (guestName) {
+        const guestsRef = collection(db, 'guests');
+        const q = query(guestsRef, where('name', '==', nameToSave));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          for (const docSnap of querySnapshot.docs) {
+            const guestDocRef = doc(db, 'guests', docSnap.id);
+            await updateDoc(guestDocRef, {
+              viewsCount: increment(1),
+              lastViewedAt: serverTimestamp(),
+              views: arrayUnion({
+                clickedAt: new Date().toISOString(),
+                userAgent: navigator.userAgent
+              })
+            });
+          }
+        } else {
+          // If guest does not exist, auto-create them
+          await addDocWithTimeout(guestsRef, {
+            name: nameToSave,
+            viewsCount: 1,
+            lastViewedAt: serverTimestamp(),
+            views: [{
+              clickedAt: new Date().toISOString(),
+              userAgent: navigator.userAgent
+            }]
+          }, 4000);
+        }
+      }
     } else {
       saveLocalView(nameToSave);
+      trackLocalGuestView(nameToSave);
     }
   } catch (error) {
     console.warn("Firestore view tracking failed, falling back to local storage:", error);
     saveLocalView(nameToSave);
+    trackLocalGuestView(nameToSave);
   }
 }
+
+// ---------------- LOCAL GUESTS MANAGEMENT ----------------
+const LOCAL_GUESTS_KEY = 'vietnamese_wedding_guests_real_v1';
+
+export function getLocalGuests(): Guest[] {
+  const data = localStorage.getItem(LOCAL_GUESTS_KEY);
+  if (!data) {
+    return [];
+  }
+  try {
+    return JSON.parse(data);
+  } catch (e) {
+    return [];
+  }
+}
+
+export function saveLocalGuest(guest: Omit<Guest, 'id' | 'viewsCount'>): Guest {
+  const list = getLocalGuests();
+  const newGuest: Guest = {
+    ...guest,
+    id: 'guest_' + Math.random().toString(36).substring(2, 11),
+    viewsCount: 0,
+    views: []
+  };
+  list.unshift(newGuest);
+  localStorage.setItem(LOCAL_GUESTS_KEY, JSON.stringify(list));
+  return newGuest;
+}
+
+export function deleteLocalGuest(id: string): Guest[] {
+  const list = getLocalGuests();
+  const filtered = list.filter(g => g.id !== id);
+  localStorage.setItem(LOCAL_GUESTS_KEY, JSON.stringify(filtered));
+  return filtered;
+}
+
+export function trackLocalGuestView(guestName: string): Guest[] {
+  const list = getLocalGuests();
+  const nameToSave = guestName ? guestName.trim() : 'Quý khách ẩn danh';
+  let found = false;
+  const updatedList = list.map(g => {
+    if (g.name.trim() === nameToSave) {
+      found = true;
+      return {
+        ...g,
+        viewsCount: g.viewsCount + 1,
+        lastViewedAt: new Date().toISOString(),
+        views: [
+          ...(g.views || []),
+          {
+            clickedAt: new Date().toISOString(),
+            userAgent: navigator.userAgent
+          }
+        ]
+      };
+    }
+    return g;
+  });
+
+  if (!found && guestName) {
+    const newGuest: Guest = {
+      id: 'guest_' + Math.random().toString(36).substring(2, 11),
+      name: nameToSave,
+      viewsCount: 1,
+      lastViewedAt: new Date().toISOString(),
+      views: [{
+        clickedAt: new Date().toISOString(),
+        userAgent: navigator.userAgent
+      }]
+    };
+    updatedList.unshift(newGuest);
+  }
+
+  localStorage.setItem(LOCAL_GUESTS_KEY, JSON.stringify(updatedList));
+  return updatedList;
+}
+
 
 

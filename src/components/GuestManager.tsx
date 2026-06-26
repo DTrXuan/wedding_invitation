@@ -1,7 +1,8 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { 
   Lock, Key, Users, CheckCircle2, XCircle, AlertCircle, 
-  Search, Filter, Trash2, Download, RefreshCw, UserPlus, LogIn, LogOut, Eye
+  Search, Filter, Trash2, Download, RefreshCw, UserPlus, LogIn, LogOut, Eye,
+  Plus, Phone, UserCheck, Heart, Share2, Link, Check, Copy, ChevronRight
 } from 'lucide-react';
 
 // Database triggers
@@ -19,7 +20,11 @@ import {
   getLocalViews,
   deleteLocalView,
   handleFirestoreError,
-  OperationType
+  OperationType,
+  getLocalGuests,
+  saveLocalGuest,
+  deleteLocalGuest,
+  addDocWithTimeout
 } from '../firebase';
 import { 
   collection, 
@@ -30,7 +35,7 @@ import {
   onSnapshot 
 } from 'firebase/firestore';
 import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth';
-import { RSVPSubmission, WishSubmission, ViewSubmission } from '../types';
+import { RSVPSubmission, WishSubmission, ViewSubmission, Guest } from '../types';
 import ShareInvitation from './ShareInvitation';
 
 export default function GuestManager() {
@@ -41,12 +46,13 @@ export default function GuestManager() {
   const [passcodeError, setPasscodeError] = useState(false);
   
   // Tab alignment
-  const [activeTab, setActiveTab] = useState<'rsvps' | 'wishes' | 'profile'>('rsvps');
+  const [activeTab, setActiveTab] = useState<'rsvps' | 'guests' | 'wishes' | 'profile'>('rsvps');
 
   // Data list states
   const [rsvps, setRsvps] = useState<RSVPSubmission[]>([]);
   const [wishes, setWishes] = useState<WishSubmission[]>([]);
   const [views, setViews] = useState<ViewSubmission[]>([]);
+  const [guests, setGuests] = useState<Guest[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncCount, setSyncCount] = useState(0);
   const [isReloading, setIsReloading] = useState(false);
@@ -59,6 +65,15 @@ export default function GuestManager() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'yes' | 'no' | 'maybe'>('all');
   const [wishSearchQuery, setWishSearchQuery] = useState('');
   const [viewSearchQuery, setViewSearchQuery] = useState('');
+  const [guestsSearchQuery, setGuestsSearchQuery] = useState('');
+  const [guestsSideFilter, setGuestsSideFilter] = useState<'all' | 'bride' | 'groom' | 'both'>('all');
+
+  // Form states for adding guests
+  const [newGuestName, setNewGuestName] = useState('');
+  const [newGuestPhone, setNewGuestPhone] = useState('');
+  const [newGuestSide, setNewGuestSide] = useState<'bride' | 'groom' | 'both'>('both');
+  const [isAddingGuest, setIsAddingGuest] = useState(false);
+  const [copiedGuestId, setCopiedGuestId] = useState<string | null>(null);
 
   // Load Auth state
   useEffect(() => {
@@ -233,6 +248,59 @@ export default function GuestManager() {
     }
   }, [isAdminUnlocked, syncCount]);
 
+  // Fetch or bind Guests
+  useEffect(() => {
+    if (!isAdminUnlocked) return;
+
+    let unsubscribe: (() => void) | undefined;
+
+    if (isFirebaseConfigured && db) {
+      const path = 'guests';
+      const guestsRef = collection(db, path);
+      
+      try {
+        unsubscribe = onSnapshot(guestsRef, (snapshot) => {
+          const list: Guest[] = [];
+          snapshot.forEach((docSnap) => {
+            const d = docSnap.data();
+            list.push({
+              id: docSnap.id,
+              name: d.name || '',
+              phone: d.phone || '',
+              side: d.side || 'both',
+              viewsCount: d.viewsCount || 0,
+              lastViewedAt: d.lastViewedAt?.toDate ? d.lastViewedAt.toDate().toISOString() : d.lastViewedAt || null,
+              views: d.views || []
+            } as Guest);
+          });
+          
+          // Sort guests by name
+          list.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+          setGuests(list);
+        }, (error) => {
+          console.warn("Firestore guests subscription failed. Falling back to local storage:", error);
+          const localGuests = getLocalGuests();
+          localGuests.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+          setGuests(localGuests);
+        });
+      } catch (err) {
+        console.warn("Error setting up Firestore guests subscription. Falling back to local storage:", err);
+        const localGuests = getLocalGuests();
+        localGuests.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+        setGuests(localGuests);
+      }
+
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
+    } else {
+      // Fallback local storage
+      const localGuests = getLocalGuests();
+      localGuests.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+      setGuests(localGuests);
+    }
+  }, [isAdminUnlocked, syncCount]);
+
   // Handle local/passcode sign in
   const handlePasscodeUnlock = (e: FormEvent) => {
     e.preventDefault();
@@ -317,6 +385,55 @@ export default function GuestManager() {
     } else {
       const filtered = deleteLocalView(id);
       setViews(filtered);
+    }
+  };
+
+  // Add Guest
+  const handleAddGuest = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!newGuestName.trim()) return;
+
+    const payload = {
+      name: newGuestName.trim(),
+      phone: newGuestPhone.trim(),
+      side: newGuestSide,
+      viewsCount: 0,
+      views: []
+    };
+
+    if (isFirebaseConfigured && db) {
+      try {
+        await addDocWithTimeout(collection(db, 'guests'), payload, 4000);
+        setNewGuestName('');
+        setNewGuestPhone('');
+        setNewGuestSide('both');
+        setIsAddingGuest(false);
+      } catch (err) {
+        alert('Lỗi khi thêm khách mời vào Firestore: ' + err);
+      }
+    } else {
+      saveLocalGuest(payload);
+      setNewGuestName('');
+      setNewGuestPhone('');
+      setNewGuestSide('both');
+      setIsAddingGuest(false);
+      setSyncCount(c => c + 1);
+    }
+  };
+
+  // Delete Guest
+  const handleDeleteGuest = async (id: string) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa khách mời này khỏi danh sách không?')) return;
+
+    if (isFirebaseConfigured && db) {
+      try {
+        await deleteDoc(doc(db, 'guests', id));
+      } catch (err) {
+        alert('Lỗi khi xóa khách mời.');
+      }
+    } else {
+      const filtered = deleteLocalGuest(id);
+      setGuests(filtered);
     }
   };
 
@@ -424,6 +541,16 @@ export default function GuestManager() {
     const matchesStatus = statusFilter === 'all' || r.attendance === statusFilter;
 
     return matchesSearch && matchesStatus;
+  });
+
+  const filteredGuests = guests.filter(g => {
+    const matchesSearch = 
+      g.name.toLowerCase().includes(guestsSearchQuery.toLowerCase()) || 
+      (g.phone && g.phone.includes(guestsSearchQuery));
+    
+    const matchesSide = guestsSideFilter === 'all' || g.side === guestsSideFilter;
+
+    return matchesSearch && matchesSide;
   });
 
   return (
@@ -603,33 +730,44 @@ export default function GuestManager() {
             </div>
 
             {/* Tabs control row */}
-            <div className="flex border-b border-stone-200">
+            <div className="flex flex-wrap border-b border-stone-200">
               <button
                 id="btn-tab-rsvps"
                 onClick={() => setActiveTab('rsvps')}
-                className={`py-3 px-6 text-xs font-semibold tracking-wider uppercase border-b-2 transition-all cursor-pointer ${
+                className={`py-3 px-5 text-xs font-semibold tracking-wider uppercase border-b-2 transition-all cursor-pointer ${
                   activeTab === 'rsvps'
                     ? 'border-amber-600 text-amber-650 font-bold'
                     : 'border-transparent text-stone-500 hover:text-stone-850'
                 }`}
               >
-                Khách mời & Lượt Xem ({totalSubmissions} / {views.length})
+                Xác Nhận RSVP ({totalSubmissions})
+              </button>
+              <button
+                id="btn-tab-guests"
+                onClick={() => setActiveTab('guests')}
+                className={`py-3 px-5 text-xs font-semibold tracking-wider uppercase border-b-2 transition-all cursor-pointer ${
+                  activeTab === 'guests'
+                    ? 'border-amber-600 text-amber-650 font-bold'
+                    : 'border-transparent text-stone-500 hover:text-stone-850'
+                }`}
+              >
+                Danh Sách Khách Mời ({guests.length})
               </button>
               <button
                 id="btn-tab-wishes"
                 onClick={() => setActiveTab('wishes')}
-                className={`py-3 px-6 text-xs font-semibold tracking-wider uppercase border-b-2 transition-all cursor-pointer ${
+                className={`py-3 px-5 text-xs font-semibold tracking-wider uppercase border-b-2 transition-all cursor-pointer ${
                   activeTab === 'wishes'
                     ? 'border-amber-600 text-amber-650 font-bold'
                     : 'border-transparent text-stone-500 hover:text-stone-850'
                 }`}
               >
-                Danh sách lời chúc (Wishes)
+                Lời Chúc ({wishes.length})
               </button>
               <button
                 id="btn-tab-profile"
                 onClick={() => setActiveTab('profile')}
-                className={`py-3 px-6 text-xs font-semibold tracking-wider uppercase border-b-2 transition-all cursor-pointer ${
+                className={`py-3 px-5 text-xs font-semibold tracking-wider uppercase border-b-2 transition-all cursor-pointer ${
                   activeTab === 'profile'
                     ? 'border-amber-600 text-amber-650 font-bold'
                     : 'border-transparent text-stone-500 hover:text-stone-850'
@@ -856,6 +994,306 @@ export default function GuestManager() {
                           );
                         })
                     )}
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* List and Filter controls board for Pre-created Guests list */}
+            {activeTab === 'guests' && (
+              <div className="space-y-6">
+                
+                {/* Statistics banner for Pre-created Guests */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-amber-50/45 border border-amber-200/60 p-4 rounded-2xl">
+                  <div className="text-center sm:text-left space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-stone-500 tracking-wider">Tổng danh sách đã thêm</span>
+                    <h5 className="text-xl font-bold text-stone-900 font-mono">{guests.length} khách mời</h5>
+                  </div>
+                  <div className="text-center sm:text-left border-y sm:border-y-0 sm:border-x border-stone-200 py-2 sm:py-0 sm:px-6 space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-stone-500 tracking-wider">Số khách đã xem thiệp</span>
+                    <h5 className="text-xl font-bold text-emerald-700 font-mono">
+                      {guests.filter(g => g.viewsCount > 0).length} khách
+                    </h5>
+                  </div>
+                  <div className="text-center sm:text-left sm:pl-4 space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-stone-500 tracking-wider">Tỷ lệ xem thiệp</span>
+                    <h5 className="text-xl font-bold text-indigo-700 font-mono">
+                      {guests.length > 0 ? Math.round((guests.filter(g => g.viewsCount > 0).length / guests.length) * 100) : 0}%
+                    </h5>
+                  </div>
+                </div>
+
+                {/* Main section wrapper */}
+                <div className="bg-white border border-stone-200 rounded-3xl p-4 md:p-6 shadow-xs space-y-4">
+                  
+                  {/* Top controls header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <h4 className="font-serif text-lg font-bold text-stone-900">Danh sách khách mời gửi thiệp</h4>
+                      <p className="text-xs text-stone-400 font-light">Quản lý link thiệp riêng biệt cho từng khách, xem số lần họ mở thiệp.</p>
+                    </div>
+
+                    <button
+                      id="btn-toggle-add-guest-form"
+                      onClick={() => setIsAddingGuest(!isAddingGuest)}
+                      className="px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer self-start sm:self-auto border border-stone-800"
+                    >
+                      {isAddingGuest ? 'Hủy thêm khách ✕' : '+ Thêm khách mới 👤'}
+                    </button>
+                  </div>
+
+                  {/* Add guest inline form */}
+                  {isAddingGuest && (
+                    <form onSubmit={handleAddGuest} className="bg-stone-50 border border-stone-200 rounded-2xl p-4 md:p-5 space-y-4 animate-fade-in">
+                      <h5 className="text-xs uppercase tracking-wider font-bold text-amber-700 flex items-center gap-1.5">
+                        <UserPlus className="w-4 h-4" /> Khai báo thông tin khách mời
+                      </h5>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-semibold text-stone-600">Họ &amp; Tên Khách Mời <span className="text-red-500">*</span></label>
+                          <input
+                            id="input-guest-name"
+                            type="text"
+                            required
+                            value={newGuestName}
+                            onChange={(e) => setNewGuestName(e.target.value)}
+                            placeholder="Ví dụ: Chị Lan &amp; Gia đình"
+                            className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl text-xs focus:outline-none focus:border-amber-650 font-medium text-stone-800 shadow-inner"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-semibold text-stone-600">Số Điện Thoại (Tùy chọn)</label>
+                          <input
+                            id="input-guest-phone"
+                            type="text"
+                            value={newGuestPhone}
+                            onChange={(e) => setNewGuestPhone(e.target.value)}
+                            placeholder="Ví dụ: 0912345678"
+                            className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl text-xs focus:outline-none focus:border-amber-655 font-medium text-stone-800 shadow-inner"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-semibold text-stone-600">Phía gia đình</label>
+                          <select
+                            id="select-guest-side"
+                            value={newGuestSide}
+                            onChange={(e: any) => setNewGuestSide(e.target.value)}
+                            className="w-full px-3 py-2 bg-white border border-stone-200 focus:border-amber-650 rounded-xl text-xs focus:outline-none text-stone-800"
+                          >
+                            <option value="both">Họ hàng cả Hai bên</option>
+                            <option value="groom">Đại diện Nhà Trai</option>
+                            <option value="bride">Đại diện Nhà Gái</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-2.5 pt-2 border-t border-stone-200/50">
+                        <button
+                          id="btn-cancel-add-guest"
+                          type="button"
+                          onClick={() => {
+                            setIsAddingGuest(false);
+                            setNewGuestName('');
+                            setNewGuestPhone('');
+                            setNewGuestSide('both');
+                          }}
+                          className="px-4 py-2 border border-stone-300 hover:bg-stone-100 rounded-xl text-xs text-stone-600 font-medium transition-all cursor-pointer"
+                        >
+                          Hủy bỏ
+                        </button>
+                        <button
+                          id="btn-submit-add-guest"
+                          type="submit"
+                          className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer"
+                        >
+                          Lưu khách mời ✓
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* Filter and search board */}
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2">
+                    {/* Search field */}
+                    <div className="relative flex-1 max-w-sm">
+                      <Search className="absolute left-3 top-2.5 w-4.5 h-4.5 text-stone-400" />
+                      <input
+                        id="input-search-guests-main"
+                        type="text"
+                        value={guestsSearchQuery}
+                        onChange={(e) => setGuestsSearchQuery(e.target.value)}
+                        placeholder="Tìm kiếm khách mời theo tên, SĐT..."
+                        className="w-full pl-9 pr-4 py-2 bg-stone-50 border border-stone-200 focus:border-stone-400 rounded-xl text-xs focus:outline-none text-stone-800"
+                      />
+                    </div>
+
+                    {/* Filter selection dropdown */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1.5 text-xs text-stone-500">
+                        <Filter className="w-3.5 h-3.5" /> Bộ lọc:
+                      </div>
+
+                      <select
+                        id="select-guests-side-filter"
+                        value={guestsSideFilter}
+                        onChange={(e: any) => setGuestsSideFilter(e.target.value)}
+                        className="px-3.5 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs focus:outline-none text-stone-800"
+                      >
+                        <option value="all">Tất cả khách mời</option>
+                        <option value="both">Họ hàng Hai bên</option>
+                        <option value="groom">Phía Nhà Trai</option>
+                        <option value="bride">Phía Nhà Gái</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Guests list detailed Table */}
+                  <div className="overflow-x-auto rounded-xl border border-stone-200">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-stone-50 text-stone-500 border-b border-stone-200 uppercase font-mono tracking-wider">
+                          <th className="py-3 px-4 font-normal">Họ Tên Khách</th>
+                          <th className="py-3 px-4 font-normal">SĐT</th>
+                          <th className="py-3 px-4 font-normal">Đại diện</th>
+                          <th className="py-3 px-4 font-normal text-center">Lượt xem (Click)</th>
+                          <th className="py-3 px-4 font-normal">Xem lần cuối</th>
+                          <th className="py-3 px-4 font-normal text-center">Gửi thiệp online</th>
+                          <th className="py-3 px-4 font-normal text-center">Hành Động</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-stone-200 font-light">
+                        {loading ? (
+                          <tr>
+                            <td colSpan={7} className="text-center py-8 text-stone-400 font-mono">Đang tải danh sách khách mời...</td>
+                          </tr>
+                        ) : filteredGuests.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="text-center py-8 text-stone-400 font-mono">Chưa có khách mời nào trong danh sách. Hãy thêm khách mới ở trên!</td>
+                          </tr>
+                        ) : (
+                          filteredGuests.map((g) => {
+                            // Generate share URLs
+                            const guestUrl = `${window.location.origin}${window.location.pathname}?to=${encodeURIComponent(g.name)}`;
+                            const isCopied = copiedGuestId === g.id;
+
+                            const shareText = `Trân trọng kính mời ${g.name} nhấn vào link dưới đây để nhận thiệp mời online từ vợ chồng Trường Xuân & Bích Trâm nhé: ${guestUrl}`;
+                            const zaloShare = `https://sp.zalo.me/share_to_zalo?url=${encodeURIComponent(guestUrl)}&title=${encodeURIComponent('Thiệp cưới online Trường Xuân & Bích Trâm')}`;
+
+                            return (
+                              <tr key={g.id} className="hover:bg-stone-50 transition-all text-stone-850">
+                                <td className="py-3 px-4">
+                                  <div className="font-semibold text-stone-800">{g.name}</div>
+                                </td>
+                                <td className="py-3 px-4 font-mono text-[11px] text-stone-500">
+                                  {g.phone || '—'}
+                                </td>
+                                <td className="py-3 px-4">
+                                  {g.side === 'groom' ? (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                      Nhà Trai
+                                    </span>
+                                  ) : g.side === 'bride' ? (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-pink-50 text-pink-700 border border-pink-200">
+                                      Nhà Gái
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-stone-100 text-stone-700 border border-stone-200">
+                                      Hai Bên
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  <div className="flex flex-col items-center justify-center">
+                                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono border ${
+                                      g.viewsCount > 0 
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                                        : 'bg-stone-50 text-stone-400 border-stone-200'
+                                    }`}>
+                                      <Eye className="w-3.5 h-3.5 shrink-0" />
+                                      {g.viewsCount} lượt
+                                    </span>
+
+                                    {/* Inline view history timeline if views exist */}
+                                    {g.views && g.views.length > 0 && (
+                                      <div className="mt-1.5 max-w-[150px] space-y-0.5 text-[9px] text-stone-400 font-mono text-left max-h-[40px] overflow-y-auto pr-1">
+                                        {g.views.map((vw, vi) => (
+                                          <div key={vi} className="truncate" title={`Xem vào: ${new Date(vw.clickedAt).toLocaleString('vi-VN')} | Thiết bị: ${vw.userAgent}`}>
+                                            • {new Date(vw.clickedAt).toLocaleTimeString('vi-VN')} ({vw.userAgent.includes('iPhone') ? 'iPhone' : vw.userAgent.includes('Android') ? 'Android' : 'PC'})
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4 font-mono text-[10px] text-stone-500">
+                                  {g.lastViewedAt ? (
+                                    <span title={new Date(g.lastViewedAt).toLocaleString('vi-VN')}>
+                                      {new Date(g.lastViewedAt).toLocaleString('vi-VN')}
+                                    </span>
+                                  ) : (
+                                    <span className="text-stone-300 italic">Chưa xem thiệp</span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-center whitespace-nowrap">
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    {/* Copy link button */}
+                                    <button
+                                      id={`btn-copy-guest-url-${g.id}`}
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(guestUrl);
+                                        setCopiedGuestId(g.id);
+                                        setTimeout(() => setCopiedGuestId(null), 2000);
+                                      }}
+                                      className={`p-1.5 rounded-lg border flex items-center gap-1 text-[11px] font-medium transition-all cursor-pointer ${
+                                        isCopied 
+                                          ? 'bg-green-50 border-green-200 text-green-600' 
+                                          : 'bg-white hover:bg-stone-55 border-stone-200 text-stone-600'
+                                      }`}
+                                      title="Copy link gửi riêng khách này"
+                                    >
+                                      {isCopied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Link className="w-3.5 h-3.5" />}
+                                      {isCopied ? 'Đã copy' : 'Copy link'}
+                                    </button>
+
+                                    {/* Send Zalo directly */}
+                                    <a
+                                      id={`lnk-share-zalo-guest-${g.id}`}
+                                      href={zaloShare}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="p-1.5 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 rounded-lg flex items-center gap-1 text-[11px] font-medium transition-all"
+                                      title="Chia sẻ link qua Zalo"
+                                    >
+                                      Zalo
+                                    </a>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4 text-center shrink">
+                                  <button
+                                    id={`btn-delete-guest-row-${g.id}`}
+                                    onClick={() => handleDeleteGuest(g.id)}
+                                    className="p-1 px-1.5 hover:bg-stone-100 hover:text-red-600 transition-colors rounded-lg text-stone-400 cursor-pointer"
+                                    title="Xóa khách mời này"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Footer message panel */}
+                  <div className="flex justify-between items-center text-[11px] text-stone-400 font-mono py-1">
+                    <span>Tổng {filteredGuests.length} khách mời phù hợp bộ lọc</span>
+                    <span>Hỗ trợ tự động đếm &amp; tracking thời gian thực</span>
                   </div>
                 </div>
 
