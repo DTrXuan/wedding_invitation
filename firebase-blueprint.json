@@ -38,8 +38,7 @@
       "required": [
         "name",
         "attendance",
-        "guestCount",
-        "side"
+        "guestCount"
       ]
     },
     "Wish": {
