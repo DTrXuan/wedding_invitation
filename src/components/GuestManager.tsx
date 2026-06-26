@@ -72,38 +72,51 @@ export default function GuestManager() {
     if (!isAdminUnlocked) return;
 
     setLoading(true);
+    let unsubscribe: (() => void) | undefined;
+
     if (isFirebaseConfigured && db) {
       // Connect to live Firestore
       const path = 'rsvps';
       const rsvpsRef = collection(db, path);
       
-      const unsubscribe = onSnapshot(rsvpsRef, (snapshot) => {
-        const list: RSVPSubmission[] = [];
-        snapshot.forEach((docSnap) => {
-          const d = docSnap.data();
-          list.push({
-            id: docSnap.id,
-            name: d.name || '',
-            phone: d.phone || '',
-            attendance: d.attendance || 'yes',
-            guestCount: d.guestCount || 0,
-            side: d.side || 'bride',
-            wishes: d.wishes || '',
-            dietaryNotes: d.dietaryNotes || '',
-            createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : d.createdAt
-          } as RSVPSubmission);
+      try {
+        unsubscribe = onSnapshot(rsvpsRef, (snapshot) => {
+          const list: RSVPSubmission[] = [];
+          snapshot.forEach((docSnap) => {
+            const d = docSnap.data();
+            list.push({
+              id: docSnap.id,
+              name: d.name || '',
+              phone: d.phone || '',
+              attendance: d.attendance || 'yes',
+              guestCount: d.guestCount || 0,
+              side: d.side || 'bride',
+              wishes: d.wishes || '',
+              dietaryNotes: d.dietaryNotes || '',
+              createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : d.createdAt
+            } as RSVPSubmission);
+          });
+          
+          // Sort by date descending
+          list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setRsvps(list);
+          setLoading(false);
+        }, (error) => {
+          console.warn("Firestore rsvps subscription failed. Falling back to local storage:", error);
+          const localData = getLocalRSVPs();
+          setRsvps(localData);
+          setLoading(false);
         });
-        
-        // Sort by date descending
-        list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setRsvps(list);
+      } catch (err) {
+        console.warn("Error setting up Firestore rsvps subscription. Falling back to local storage:", err);
+        const localData = getLocalRSVPs();
+        setRsvps(localData);
         setLoading(false);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.GET, path);
-        setLoading(false);
-      });
+      }
 
-      return unsubscribe;
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
     } else {
       // Fallback local storage
       const localData = getLocalRSVPs();
@@ -116,30 +129,44 @@ export default function GuestManager() {
   useEffect(() => {
     if (!isAdminUnlocked) return;
 
+    let unsubscribe: (() => void) | undefined;
+
     if (isFirebaseConfigured && db) {
       const path = 'wishes';
       const wishesRef = collection(db, path);
       
-      const unsubscribe = onSnapshot(wishesRef, (snapshot) => {
-        const list: WishSubmission[] = [];
-        snapshot.forEach((docSnap) => {
-          const d = docSnap.data();
-          list.push({
-            id: docSnap.id,
-            name: d.name || '',
-            wishes: d.wishes || '',
-            createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : d.createdAt || new Date().toISOString()
-          } as WishSubmission);
+      try {
+        unsubscribe = onSnapshot(wishesRef, (snapshot) => {
+          const list: WishSubmission[] = [];
+          snapshot.forEach((docSnap) => {
+            const d = docSnap.data();
+            list.push({
+              id: docSnap.id,
+              name: d.name || '',
+              wishes: d.wishes || '',
+              createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : d.createdAt || new Date().toISOString()
+            } as WishSubmission);
+          });
+          
+          // Sort wishes by createdAt date descending
+          list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setWishes(list);
+        }, (error) => {
+          console.warn("Firestore wishes subscription failed. Falling back to local storage:", error);
+          const localWishes = getLocalWishes();
+          localWishes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setWishes(localWishes);
         });
-        
-        // Sort wishes by createdAt date descending
-        list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setWishes(list);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.GET, path);
-      });
+      } catch (err) {
+        console.warn("Error setting up Firestore wishes subscription. Falling back to local storage:", err);
+        const localWishes = getLocalWishes();
+        localWishes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setWishes(localWishes);
+      }
 
-      return unsubscribe;
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
     } else {
       // Fallback local storage
       const localWishes = getLocalWishes();

@@ -28,32 +28,47 @@ export default function Guestbook({ invitedGuest = '' }: GuestbookProps) {
 
   useEffect(() => {
     setLoading(true);
+    let unsubscribe: (() => void) | undefined;
+
     if (isFirebaseConfigured && db) {
       const path = 'wishes';
       const wishesRef = collection(db, path);
       
-      const unsubscribe = onSnapshot(wishesRef, (snapshot) => {
-        const list: WishSubmission[] = [];
-        snapshot.forEach((docSnap) => {
-          const d = docSnap.data();
-          list.push({
-            id: docSnap.id,
-            name: d.name || '',
-            wishes: d.wishes || '',
-            createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : d.createdAt || new Date().toISOString()
-          } as WishSubmission);
+      try {
+        unsubscribe = onSnapshot(wishesRef, (snapshot) => {
+          const list: WishSubmission[] = [];
+          snapshot.forEach((docSnap) => {
+            const d = docSnap.data();
+            list.push({
+              id: docSnap.id,
+              name: d.name || '',
+              wishes: d.wishes || '',
+              createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : d.createdAt || new Date().toISOString()
+            } as WishSubmission);
+          });
+          
+          // Sort wishes by createdAt date descending
+          list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setWishesList(list);
+          setLoading(false);
+        }, (error) => {
+          console.warn("Firestore subscription for wishes failed. Falling back to local storage:", error);
+          const local = getLocalWishes();
+          local.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setWishesList(local);
+          setLoading(false);
         });
-        
-        // Sort wishes by createdAt date descending
-        list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setWishesList(list);
+      } catch (err) {
+        console.warn("Error setting up Firestore subscription for wishes. Falling back to local storage:", err);
+        const local = getLocalWishes();
+        local.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setWishesList(local);
         setLoading(false);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.GET, path);
-        setLoading(false);
-      });
+      }
 
-      return unsubscribe;
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
     } else {
       // Fallback local storage
       const local = getLocalWishes();
