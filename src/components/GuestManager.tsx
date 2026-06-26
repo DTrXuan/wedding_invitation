@@ -41,7 +41,7 @@ export default function GuestManager() {
   const [passcodeError, setPasscodeError] = useState(false);
   
   // Tab alignment
-  const [activeTab, setActiveTab] = useState<'rsvps' | 'wishes' | 'views' | 'profile'>('rsvps');
+  const [activeTab, setActiveTab] = useState<'rsvps' | 'wishes' | 'profile'>('rsvps');
 
   // Data list states
   const [rsvps, setRsvps] = useState<RSVPSubmission[]>([]);
@@ -56,7 +56,6 @@ export default function GuestManager() {
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
-  const [sideFilter, setSideFilter] = useState<'all' | 'bride' | 'groom' | 'both'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'yes' | 'no' | 'maybe'>('all');
   const [wishSearchQuery, setWishSearchQuery] = useState('');
   const [viewSearchQuery, setViewSearchQuery] = useState('');
@@ -335,17 +334,16 @@ export default function GuestManager() {
     ];
     const randomName = names[Math.floor(Math.random() * names.length)];
     const randomWish = wishesText[Math.floor(Math.random() * wishesText.length)];
-    const randomSide = ['bride', 'groom', 'both'][Math.floor(Math.random() * 3)] as any;
     const randomStatus = ['yes', 'no', 'maybe'][Math.floor(Math.random() * 3)] as any;
 
     const payload = {
       name: randomName,
       phone: '09' + Math.floor(10000000 + Math.random() * 90000000),
       attendance: randomStatus,
-      side: randomSide,
+      side: 'both' as const,
       guestCount: randomStatus === 'yes' ? Math.floor(1 + Math.random() * 3) : 0,
       wishes: randomWish,
-      dietaryNotes: Math.random() > 0.7 ? 'Ăn chay nhẹ' : ''
+      dietaryNotes: ''
     };
 
     if (isFirebaseConfigured && db) {
@@ -384,19 +382,16 @@ export default function GuestManager() {
 
     // Build headers including UTF-8 Byte Order Mark (BOM) to correctly display Vietnamese accents in Excel
     const BOM = '\uFEFF';
-    let csvContent = BOM + 'Họ Tên Khách,Số Điện Thoại,Trạng Thái,Sĩ Số Tham Gia,Phía Khách,Món Ăn Ghi Chú,Lời Chúc Dự Tiệc,Thời Gian\n';
+    let csvContent = BOM + 'Họ Tên Khách,Số Điện Thoại,Trạng Thái,Sĩ Số Tham Gia,Lời Chúc Dự Tiệc,Thời Gian\n';
 
     rsvps.forEach(r => {
       const statusText = r.attendance === 'yes' ? 'Tham Dự' : r.attendance === 'no' ? 'Bất Khả Kháng' : 'Có Thể';
-      const sideText = r.side === 'bride' ? 'Bên Cô Dâu' : r.side === 'groom' ? 'Bên Chú Rể' : 'Cả Hai Bên';
       
       const row = [
         `"${r.name.replace(/"/g, '""')}"`,
         `"${r.phone}"`,
         `"${statusText}"`,
         r.guestCount,
-        `"${sideText}"`,
-        `"${r.dietaryNotes.replace(/"/g, '""')}"`,
         `"${r.wishes.replace(/"/g, '""')}"`,
         `"${r.createdAt}"`
       ].join(',');
@@ -416,14 +411,9 @@ export default function GuestManager() {
 
   // Analytics compilations
   const totalSubmissions = rsvps.length;
-  const totalAttending = rsvps.filter(r => r.attendance === 'yes').length;
   const totalSeats = rsvps.reduce((sum, r) => sum + (r.attendance === 'yes' ? r.guestCount : 0), 0);
   const attendingMaybe = rsvps.filter(r => r.attendance === 'maybe').length;
   const attendingNo = rsvps.filter(r => r.attendance === 'no').length;
-
-  const sideGroomCount = rsvps.filter(r => r.side === 'groom').length;
-  const sideBrideCount = rsvps.filter(r => r.side === 'bride').length;
-  const sideBothCount = rsvps.filter(r => r.side === 'both').length;
 
   // Live filter arrays
   const filteredRSVPs = rsvps.filter(r => {
@@ -431,10 +421,9 @@ export default function GuestManager() {
       r.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
       r.phone.includes(searchQuery);
     
-    const matchesSide = sideFilter === 'all' || r.side === sideFilter;
     const matchesStatus = statusFilter === 'all' || r.attendance === statusFilter;
 
-    return matchesSearch && matchesSide && matchesStatus;
+    return matchesSearch && matchesStatus;
   });
 
   return (
@@ -613,22 +602,6 @@ export default function GuestManager() {
               ))}
             </div>
 
-            {/* Side Distribution Breakdown */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-stone-50 p-4 border border-stone-200 rounded-2xl">
-              <div className="text-center md:border-r border-stone-200 py-2">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400">Khách Bên Nhà Trai</span>
-                <p className="text-lg font-bold text-indigo-800 mt-1 font-mono">{sideGroomCount} người</p>
-              </div>
-              <div className="text-center md:border-r border-stone-200 py-2">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400">Khách Bên Nhà Gái</span>
-                <p className="text-lg font-bold text-rose-800 mt-1 font-mono">{sideBrideCount} người</p>
-              </div>
-              <div className="text-center py-2">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-stone-400">Khách Của Cả Hai Bên</span>
-                <p className="text-lg font-bold text-amber-800 mt-1 font-mono">{sideBothCount} người</p>
-              </div>
-            </div>
-
             {/* Tabs control row */}
             <div className="flex border-b border-stone-200">
               <button
@@ -640,7 +613,7 @@ export default function GuestManager() {
                     : 'border-transparent text-stone-500 hover:text-stone-850'
                 }`}
               >
-                Danh sách xác nhận (RSVP)
+                Khách mời & Lượt Xem ({totalSubmissions} / {views.length})
               </button>
               <button
                 id="btn-tab-wishes"
@@ -652,17 +625,6 @@ export default function GuestManager() {
                 }`}
               >
                 Danh sách lời chúc (Wishes)
-              </button>
-              <button
-                id="btn-tab-views"
-                onClick={() => setActiveTab('views')}
-                className={`py-3 px-6 text-xs font-semibold tracking-wider uppercase border-b-2 transition-all cursor-pointer ${
-                  activeTab === 'views'
-                    ? 'border-amber-600 text-amber-650 font-bold'
-                    : 'border-transparent text-stone-500 hover:text-stone-850'
-                }`}
-              >
-                Lượt click xem ({views.length})
               </button>
               <button
                 id="btn-tab-profile"
@@ -677,157 +639,226 @@ export default function GuestManager() {
               </button>
             </div>
 
-            {/* List and Filter controls board for RSVPs */}
+            {/* List and Filter controls board for RSVPs & Views */}
             {activeTab === 'rsvps' && (
-              <div className="bg-white border border-stone-200 rounded-3xl p-4 md:p-6 shadow-xs space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 
-                {/* Filter controls row */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  
-                  {/* Search field */}
-                  <div className="relative flex-1 max-w-sm">
+                {/* Left Column: RSVPs Guest list table (col-span-8) */}
+                <div className="lg:col-span-8 bg-white border border-stone-200 rounded-3xl p-4 md:p-6 shadow-xs space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-serif text-lg font-bold text-stone-900">Danh sách phản hồi RSVP</h4>
+                    <span className="text-xs bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full font-semibold border border-emerald-150">
+                      Sĩ số dự kiến: {totalSeats} ghế
+                    </span>
+                  </div>
+
+                  {/* Filter controls row */}
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    
+                    {/* Search field */}
+                    <div className="relative flex-1 max-w-sm">
+                      <Search className="absolute left-3 top-2.5 w-4.5 h-4.5 text-stone-400" />
+                      <input
+                        id="input-search-guest"
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Tìm kiếm theo tên khách, SĐT..."
+                        className="w-full pl-9 pr-4 py-2 bg-stone-50 border border-stone-200 focus:border-stone-400 rounded-xl text-xs focus:outline-none text-stone-800"
+                      />
+                    </div>
+
+                    {/* Dropdown filters alignment */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex items-center gap-1.5 text-xs text-stone-500">
+                        <Filter className="w-3.5 h-3.5" /> Phân Loại:
+                      </div>
+
+                      {/* Attendance status dropdown */}
+                      <select
+                        id="select-filter-status"
+                        value={statusFilter}
+                        onChange={(e: any) => setStatusFilter(e.target.value)}
+                        className="px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs focus:outline-none text-stone-800"
+                      >
+                        <option value="all">Mọi trạng thái</option>
+                        <option value="yes">Sẽ Tham dự</option>
+                        <option value="maybe">Có Thể</option>
+                        <option value="no">Bất Khả Kháng</option>
+                      </select>
+
+                      {/* Export Trigger */}
+                      <button
+                        id="btn-export-excel"
+                        disabled={filteredRSVPs.length === 0}
+                        onClick={handleExportCSV}
+                        className="px-3.5 py-1.5 bg-stone-900 hover:bg-stone-800 disabled:bg-stone-100 disabled:text-stone-400 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all shrink-0 cursor-pointer border border-stone-300"
+                      >
+                        <Download className="w-3.5 h-3.5" /> Xuất CSV
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Guests RSVP detailed Table */}
+                  <div className="overflow-x-auto rounded-xl border border-stone-200">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-stone-50 text-stone-500 border-b border-stone-200 uppercase font-mono tracking-wider">
+                          <th className="py-3 px-4 font-normal">Họ Tên Khách</th>
+                          <th className="py-3 px-4 font-normal">SĐT Bảo Mật</th>
+                          <th className="py-3 px-4 font-normal">Xác Nhận</th>
+                          <th className="py-3 px-4 font-normal">Sĩ Số</th>
+                          <th className="py-3 px-4 font-normal">Lời Chúc</th>
+                          <th className="py-3 px-4 font-normal text-center">Hành Động</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-stone-200 font-light">
+                        {loading ? (
+                          <tr>
+                            <td colSpan={6} className="text-center py-8 text-stone-400 font-mono">Đang nạp danh sách dữ liệu...</td>
+                          </tr>
+                        ) : filteredRSVPs.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="text-center py-8 text-stone-400 font-mono">Không tìm thấy vị khách nào trùng khớp.</td>
+                          </tr>
+                        ) : (
+                          filteredRSVPs.map((r) => (
+                            <tr key={r.id} className="hover:bg-stone-50 transition-all text-stone-850">
+                              <td className="py-3 md:py-4 px-4 font-semibold text-stone-800">
+                                {r.name}
+                              </td>
+                              <td className="py-3 md:py-4 px-4 font-mono text-[11px] text-stone-500">
+                                {r.phone || '—'}
+                              </td>
+                              <td className="py-3 md:py-4 px-4">
+                                {r.attendance === 'yes' ? (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    Sẽ đi
+                                  </span>
+                                ) : r.attendance === 'maybe' ? (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                    Có thể
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-600 border border-red-200">
+                                    Tiếc quá
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-3 md:py-4 px-4 font-bold font-mono text-stone-800">
+                                {r.attendance === 'yes' ? r.guestCount : '0'}
+                              </td>
+                              <td className="py-3 md:py-4 px-4 max-w-[200px] truncate-2-lines text-stone-500 font-light text-[11px] leading-relaxed">
+                                {r.wishes ? `"${r.wishes}"` : <span className="text-stone-400 font-serif italic">Không gửi lời chúc</span>}
+                              </td>
+                              <td className="py-3 md:py-4 px-4 text-center shrink">
+                                <button
+                                  id={`btn-delete-row-${r.id}`}
+                                  onClick={() => handleDelete(r.id)}
+                                  className="p-1 px-1.5 hover:bg-stone-100 hover:text-red-600 transition-colors rounded-lg text-stone-400"
+                                  title="Xóa vị khách này"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Bottom total status strip */}
+                  <div className="flex justify-between items-center text-[11px] text-stone-400 font-mono py-1.5">
+                    <span>Hiện {filteredRSVPs.length} khách mời trùng khớp</span>
+                    <span>Hệ thống bảo mật dữ liệu an toàn</span>
+                  </div>
+                </div>
+
+                {/* Right Column: Lịch sử click xem thiệp (col-span-4) */}
+                <div className="lg:col-span-4 bg-white border border-stone-200 rounded-3xl p-4 md:p-6 shadow-xs space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-serif text-lg font-bold text-stone-900">Lượt click xem thiệp</h4>
+                    <span className="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-semibold border border-indigo-150 font-mono">
+                      {views.length} lượt
+                    </span>
+                  </div>
+
+                  {/* Search for Views */}
+                  <div className="relative">
                     <Search className="absolute left-3 top-2.5 w-4.5 h-4.5 text-stone-400" />
                     <input
-                      id="input-search-guest"
+                      id="input-search-views-combined"
                       type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Tìm kiếm theo tên khách, SĐT..."
+                      value={viewSearchQuery}
+                      onChange={(e) => setViewSearchQuery(e.target.value)}
+                      placeholder="Tìm tên khách hoặc thiết bị..."
                       className="w-full pl-9 pr-4 py-2 bg-stone-50 border border-stone-200 focus:border-stone-400 rounded-xl text-xs focus:outline-none text-stone-800"
                     />
                   </div>
 
-                  {/* Dropdown filters alignment */}
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-1.5 text-xs text-stone-500">
-                      <Filter className="w-3.5 h-3.5" /> Phân Loại:
-                    </div>
+                  {/* Views list */}
+                  <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
+                    {views.filter(v => {
+                      return v.guestName.toLowerCase().includes(viewSearchQuery.toLowerCase()) ||
+                        v.userAgent.toLowerCase().includes(viewSearchQuery.toLowerCase());
+                    }).length === 0 ? (
+                      <p className="text-center py-8 text-stone-400 font-mono text-xs">Không tìm thấy lượt click xem nào.</p>
+                    ) : (
+                      views
+                        .filter(v => {
+                          return v.guestName.toLowerCase().includes(viewSearchQuery.toLowerCase()) ||
+                            v.userAgent.toLowerCase().includes(viewSearchQuery.toLowerCase());
+                        })
+                        .map((v) => {
+                          let deviceLabel = 'Thiết bị khác';
+                          const ua = v.userAgent || '';
+                          if (ua.includes('iPhone')) {
+                            deviceLabel = ua.includes('FBAV') || ua.includes('FB_IAB') 
+                              ? 'iPhone (FB)' 
+                              : ua.includes('Zalo') 
+                              ? 'iPhone (Zalo)' 
+                              : 'iPhone (Safari)';
+                          } else if (ua.includes('Android')) {
+                            deviceLabel = ua.includes('FBAV') || ua.includes('FB_IAB') 
+                              ? 'Android (FB)' 
+                              : ua.includes('Zalo') 
+                              ? 'Android (Zalo)' 
+                              : 'Android';
+                          } else if (ua.includes('Macintosh')) {
+                            deviceLabel = 'Mac';
+                          } else if (ua.includes('Windows')) {
+                            deviceLabel = 'PC Windows';
+                          }
 
-                    {/* Side filter dropdown */}
-                    <select
-                      id="select-filter-side"
-                      value={sideFilter}
-                      onChange={(e: any) => setSideFilter(e.target.value)}
-                      className="px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs focus:outline-none text-stone-800"
-                    >
-                      <option value="all">Mọi Bên Nhà</option>
-                      <option value="bride">Bên Cô Dâu</option>
-                      <option value="groom">Bên Chú Rể</option>
-                      <option value="both">Cả hai phía</option>
-                    </select>
-
-                    {/* Attendance status dropdown */}
-                    <select
-                      id="select-filter-status"
-                      value={statusFilter}
-                      onChange={(e: any) => setStatusFilter(e.target.value)}
-                      className="px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs focus:outline-none text-stone-800"
-                    >
-                      <option value="all">Mọi trạng thái</option>
-                      <option value="yes">Sẽ Tham dự</option>
-                      <option value="maybe">Có Thể</option>
-                      <option value="no">Bất Khả Kháng</option>
-                    </select>
-
-                    {/* Export Trigger */}
-                    <button
-                      id="btn-export-excel"
-                      disabled={filteredRSVPs.length === 0}
-                      onClick={handleExportCSV}
-                      className="px-3.5 py-1.5 bg-stone-900 hover:bg-stone-800 disabled:bg-stone-100 disabled:text-stone-400 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all shrink-0 cursor-pointer border border-stone-300"
-                    >
-                      <Download className="w-3.5 h-3.5" /> Xuất File Excel (CSV)
-                    </button>
+                          return (
+                            <div key={v.id} className="p-3 bg-stone-50 hover:bg-stone-100 rounded-xl border border-stone-200/60 flex items-center justify-between gap-3 text-xs transition-all">
+                              <div className="space-y-1 min-w-0 flex-1">
+                                <div className="font-semibold text-stone-850 truncate">{v.guestName}</div>
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="bg-slate-100 border border-slate-200 text-slate-700 px-1.5 py-0.5 rounded text-[10px] font-mono">
+                                    {deviceLabel}
+                                  </span>
+                                  <span className="text-stone-400 text-[10px] font-mono">
+                                    {new Date(v.clickedAt).toLocaleString('vi-VN')}
+                                  </span>
+                                </div>
+                              </div>
+                              <button
+                                id={`btn-delete-view-comb-${v.id}`}
+                                onClick={() => handleDeleteView(v.id)}
+                                className="p-1 hover:bg-stone-200 rounded-lg text-stone-400 hover:text-red-600 transition-colors"
+                                title="Xóa lượt click này"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          );
+                        })
+                    )}
                   </div>
                 </div>
 
-                {/* Guests RSVP detailed Table */}
-                <div className="overflow-x-auto rounded-xl border border-stone-200">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-stone-50 text-stone-500 border-b border-stone-200 uppercase font-mono tracking-wider">
-                        <th className="py-3 px-4 font-normal">Họ Tên Khách</th>
-                        <th className="py-3 px-4 font-normal">SĐT Bảo Mật</th>
-                        <th className="py-3 px-4 font-normal">Xác Nhận</th>
-                        <th className="py-3 px-4 font-normal">Sĩ Số</th>
-                        <th className="py-3 px-4 font-normal">Phía Gửi</th>
-                        <th className="py-3 px-4 font-normal">Yêu cầu ăn / Lời Chúc</th>
-                        <th className="py-3 px-4 font-normal text-center">Hành Động</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-stone-200 font-light">
-                      {loading ? (
-                        <tr>
-                          <td colSpan={7} className="text-center py-8 text-stone-400 font-mono">Đang nạp danh sách dữ liệu...</td>
-                        </tr>
-                      ) : filteredRSVPs.length === 0 ? (
-                        <tr>
-                          <td colSpan={7} className="text-center py-8 text-stone-400 font-mono">Không tìm thấy vị khách nào trùng khớp.</td>
-                        </tr>
-                      ) : (
-                        filteredRSVPs.map((r) => (
-                          <tr key={r.id} className="hover:bg-stone-50 transition-all text-stone-850">
-                            <td className="py-3 md:py-4 px-4 font-semibold text-stone-800">
-                              {r.name}
-                            </td>
-                            <td className="py-3 md:py-4 px-4 font-mono text-[11px] text-stone-500">
-                              {r.phone || '—'}
-                            </td>
-                            <td className="py-3 md:py-4 px-4">
-                              {r.attendance === 'yes' ? (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                  Sẽ đi
-                                </span>
-                              ) : r.attendance === 'maybe' ? (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                                  Có thể
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-600 border border-red-200">
-                                  Tiếc quá
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-3 md:py-4 px-4 font-bold font-mono text-stone-800">
-                              {r.attendance === 'yes' ? r.guestCount : '0'}
-                            </td>
-                            <td className="py-3 md:py-4 px-4">
-                              {r.side === 'bride' ? (
-                                <span className="text-rose-700 font-semibold">Bên Cô Dâu</span>
-                              ) : r.side === 'groom' ? (
-                                <span className="text-indigo-700 font-semibold">Bên Chú Rể</span>
-                              ) : (
-                                <span className="text-amber-700 font-semibold">Chung (Cả 2)</span>
-                              )}
-                            </td>
-                            <td className="py-3 md:py-4 px-4 max-w-[200px] truncate-2-lines text-stone-500 font-light text-[11px] leading-relaxed">
-                              {r.dietaryNotes && (
-                                <div className="mb-0.5"><b className="text-[10px] text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-250 uppercase">Ăn uống:</b> <span className="text-stone-700">{r.dietaryNotes}</span></div>
-                              )}
-                              {r.wishes ? `"${r.wishes}"` : <span className="text-stone-400 font-serif italic">Không gửi lời chúc</span>}
-                            </td>
-                            <td className="py-3 md:py-4 px-4 text-center shrink">
-                              <button
-                                id={`btn-delete-row-${r.id}`}
-                                onClick={() => handleDelete(r.id)}
-                                className="p-1 px-1.5 hover:bg-stone-100 hover:text-red-600 transition-colors rounded-lg text-stone-400"
-                                title="Xóa vị khách này"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Bottom total status strip */}
-                <div className="flex justify-between items-center text-[11px] text-stone-400 font-mono py-1.5">
-                  <span>Hiện {filteredRSVPs.length} sản phẩm trùng khớp</span>
-                  <span>An toàn dữ liệu SSL mã hoá đỉnh cao</span>
-                </div>
               </div>
             )}
 
@@ -915,114 +946,7 @@ export default function GuestManager() {
               </div>
             )}
 
-            {/* List and Filter controls board for Views/Clicks Analytics */}
-            {activeTab === 'views' && (
-              <div className="bg-white border border-stone-200 rounded-3xl p-4 md:p-6 shadow-xs space-y-4">
-                
-                {/* Filter controls row */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  {/* Search field */}
-                  <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-2.5 w-4.5 h-4.5 text-stone-400" />
-                    <input
-                      id="input-search-views"
-                      type="text"
-                      value={viewSearchQuery}
-                      onChange={(e) => setViewSearchQuery(e.target.value)}
-                      placeholder="Tìm kiếm theo tên khách, thiết bị..."
-                      className="w-full pl-9 pr-4 py-2 bg-stone-50 border border-stone-200 focus:border-stone-400 rounded-xl text-xs focus:outline-none text-stone-800"
-                    />
-                  </div>
-                </div>
 
-                {/* Views detailed Table */}
-                <div className="overflow-x-auto rounded-xl border border-stone-200">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-stone-50 text-stone-500 border-b border-stone-200 uppercase font-mono tracking-wider">
-                        <th className="py-3 px-4 font-normal">Tên Khách Mời</th>
-                        <th className="py-3 px-4 font-normal">Thiết bị / Trình duyệt</th>
-                        <th className="py-3 px-4 font-normal">Thời Gian Xem</th>
-                        <th className="py-3 px-4 font-normal text-center">Hành Động</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-stone-200 font-light">
-                      {views.filter(v => {
-                        return v.guestName.toLowerCase().includes(viewSearchQuery.toLowerCase()) ||
-                          v.userAgent.toLowerCase().includes(viewSearchQuery.toLowerCase());
-                      }).length === 0 ? (
-                        <tr>
-                          <td colSpan={4} className="text-center py-8 text-stone-400 font-mono">Không tìm thấy lượt click xem nào.</td>
-                        </tr>
-                      ) : (
-                        views
-                          .filter(v => {
-                            return v.guestName.toLowerCase().includes(viewSearchQuery.toLowerCase()) ||
-                              v.userAgent.toLowerCase().includes(viewSearchQuery.toLowerCase());
-                          })
-                          .map((v) => {
-                            // User agent formatting helper
-                            let deviceLabel = 'Thiết bị khác';
-                            const ua = v.userAgent || '';
-                            if (ua.includes('iPhone')) {
-                              deviceLabel = ua.includes('FBAV') || ua.includes('FB_IAB') 
-                                ? 'iPhone (Facebook App)' 
-                                : ua.includes('Zalo') 
-                                ? 'iPhone (Zalo App)' 
-                                : 'iPhone (Safari)';
-                            } else if (ua.includes('Android')) {
-                              deviceLabel = ua.includes('FBAV') || ua.includes('FB_IAB') 
-                                ? 'Android (Facebook)' 
-                                : ua.includes('Zalo') 
-                                ? 'Android (Zalo)' 
-                                : 'Android Phone';
-                            } else if (ua.includes('Macintosh')) {
-                              deviceLabel = 'MacBook / macOS';
-                            } else if (ua.includes('Windows')) {
-                              deviceLabel = 'Windows PC';
-                            }
-
-                            return (
-                              <tr key={v.id} className="hover:bg-stone-50 transition-all text-stone-850">
-                                <td className="py-3 md:py-4 px-4 font-semibold text-stone-800 whitespace-nowrap">
-                                  {v.guestName}
-                                </td>
-                                <td className="py-3 md:py-4 px-4 text-stone-600 font-light max-w-xs truncate" title={v.userAgent}>
-                                  <span className="bg-slate-50 border border-slate-200 text-slate-700 px-2.5 py-1 rounded-lg text-[11px] font-medium font-mono">
-                                    {deviceLabel}
-                                  </span>
-                                </td>
-                                <td className="py-3 md:py-4 px-4 font-mono text-[11px] text-stone-500 whitespace-nowrap">
-                                  {new Date(v.clickedAt).toLocaleString('vi-VN')}
-                                </td>
-                                <td className="py-3 md:py-4 px-4 text-center shrink">
-                                  <button
-                                    id={`btn-delete-view-${v.id}`}
-                                    onClick={() => handleDeleteView(v.id)}
-                                    className="p-1 px-1.5 hover:bg-stone-100 hover:text-red-600 transition-colors rounded-lg text-stone-400"
-                                    title="Xóa lượt click này"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Bottom total status strip */}
-                <div className="flex justify-between items-center text-[11px] text-stone-400 font-mono py-1.5">
-                  <span>Hiện {views.filter(v => {
-                    return v.guestName.toLowerCase().includes(viewSearchQuery.toLowerCase()) ||
-                      v.userAgent.toLowerCase().includes(viewSearchQuery.toLowerCase());
-                  }).length} lượt click xem trùng khớp</span>
-                  <span>Phân tích dữ liệu click thời gian thực</span>
-                </div>
-              </div>
-            )}
 
             {/* List and Filter controls board for Personal Invitation Creator */}
             {activeTab === 'profile' && (

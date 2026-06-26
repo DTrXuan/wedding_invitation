@@ -46,10 +46,8 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
   const [name, setName] = useState(invitedGuest || '');
   const [phone, setPhone] = useState('');
   const [attendance, setAttendance] = useState<'yes' | 'no' | 'maybe'>('yes');
-  const [side, setSide] = useState<'bride' | 'groom' | 'both'>('both');
   const [guestCount, setGuestCount] = useState<number>(1);
   const [wishes, setWishes] = useState('');
-  const [dietaryNotes, setDietaryNotes] = useState('');
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -98,10 +96,8 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
       name: name.trim(),
       phone: phone.trim(),
       attendance,
-      side,
       guestCount: attendance === 'yes' ? guestCount : 0,
-      wishes: wishes.trim(),
-      dietaryNotes: dietaryNotes.trim()
+      wishes: wishes.trim()
     };
 
     try {
@@ -170,10 +166,8 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
     setName('');
     setPhone('');
     setAttendance('yes');
-    setSide('bride');
     setGuestCount(1);
     setWishes('');
-    setDietaryNotes('');
     setIsSubmitted(false);
   };
 

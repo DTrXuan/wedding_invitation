@@ -4,9 +4,9 @@ export interface RSVPSubmission {
   phone: string;
   attendance: 'yes' | 'no' | 'maybe';
   guestCount: number;
-  side: 'bride' | 'groom' | 'both';
+  side?: 'bride' | 'groom' | 'both';
   wishes: string;
-  dietaryNotes: string;
+  dietaryNotes?: string;
   createdAt: any; // Timestamp or ISO string
   respondedAt?: string; // Pretty display string
 }
