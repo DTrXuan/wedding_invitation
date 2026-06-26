@@ -84,10 +84,10 @@ service cloud.firestore {
 
     // Rules for Views collection (Analytics)
     match /views/{viewId} {
-      // Anyone can create a view log
-      allow create: if isValidId(viewId)
+      // Anyone can create a view log with current timestamp, or Admin can create any view log (for offline sync)
+      allow create: if (isValidId(viewId)
         && isValidView(incoming())
-        && incoming().clickedAt == request.time;
+        && incoming().clickedAt == request.time) || isAdmin();
 
       // Only the Admin can read, update, or delete view logs
       allow read, update, delete: if isAdmin();

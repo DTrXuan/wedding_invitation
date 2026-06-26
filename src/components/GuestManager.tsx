@@ -32,7 +32,11 @@ import {
   doc, 
   deleteDoc, 
   updateDoc, 
-  onSnapshot 
+  onSnapshot,
+  query,
+  where,
+  increment,
+  arrayUnion
 } from 'firebase/firestore';
 import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth';
 import { RSVPSubmission, WishSubmission, ViewSubmission, Guest } from '../types';
@@ -56,6 +60,7 @@ export default function GuestManager() {
   const [loading, setLoading] = useState(false);
   const [syncCount, setSyncCount] = useState(0);
   const [isReloading, setIsReloading] = useState(false);
+  const [syncingViews, setSyncingViews] = useState(false);
 
   // Authentication state
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -403,6 +408,89 @@ export default function GuestManager() {
     } else {
       const filtered = deleteLocalView(id);
       setViews(filtered);
+    }
+  };
+
+  // Sync offline/local views to Cloud Database
+  const handleSyncViews = async () => {
+    const localViews = getLocalViews();
+    if (localViews.length === 0) {
+      alert('Không có lượt click offline nào cần đồng bộ.');
+      return;
+    }
+
+    if (!isFirebaseConfigured || !db) {
+      alert('Chưa cấu hình Firebase để đồng bộ lên database.');
+      return;
+    }
+
+    setSyncingViews(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    try {
+      for (const v of localViews) {
+        try {
+          // 1. Log to general views collection in Firestore
+          const clickedDate = new Date(v.clickedAt);
+          
+          await addDocWithTimeout(collection(db, 'views'), {
+            guestName: v.guestName || 'Quý khách ẩn danh',
+            userAgent: v.userAgent || '',
+            clickedAt: clickedDate
+          }, 4000);
+
+          // 2. Sync corresponding Guest views count
+          if (v.guestName && v.guestName !== 'Quý khách ẩn danh') {
+            const guestsRef = collection(db, 'guests');
+            const q = query(guestsRef, where('name', '==', v.guestName.trim()));
+            const querySnapshot = await getDocs(q);
+            
+            if (!querySnapshot.empty) {
+              for (const docSnap of querySnapshot.docs) {
+                const guestDocRef = doc(db, 'guests', docSnap.id);
+                await updateDoc(guestDocRef, {
+                  viewsCount: increment(1),
+                  lastViewedAt: clickedDate,
+                  views: arrayUnion({
+                    clickedAt: v.clickedAt,
+                    userAgent: v.userAgent
+                  })
+                });
+              }
+            } else {
+              // Create guest if not exist
+              await addDocWithTimeout(guestsRef, {
+                name: v.guestName.trim(),
+                viewsCount: 1,
+                lastViewedAt: clickedDate,
+                views: [{
+                  clickedAt: v.clickedAt,
+                  userAgent: v.userAgent
+                }]
+              }, 4000);
+            }
+          }
+          
+          successCount++;
+        } catch (err) {
+          console.error("Failed to sync view log:", err);
+          failCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        // Clear local views only if synced successfully
+        localStorage.removeItem('vietnamese_wedding_views_real_v1');
+        setSyncCount(c => c + 1);
+        alert(`Đồng bộ thành công ${successCount} lượt click xem thiệp lên database!${failCount > 0 ? ` Thất bại ${failCount} lượt.` : ''}`);
+      } else {
+        alert('Đồng bộ thất bại. Vui lòng kiểm tra kết nối mạng hoặc quyền Admin.');
+      }
+    } catch (e) {
+      alert('Lỗi trong quá trình đồng bộ: ' + e);
+    } finally {
+      setSyncingViews(false);
     }
   };
 
@@ -926,6 +1014,23 @@ export default function GuestManager() {
                       {views.length} lượt
                     </span>
                   </div>
+
+                  {isFirebaseConfigured && getLocalViews().length > 0 && (
+                    <div className="p-3 bg-indigo-50/50 border border-indigo-100 rounded-2xl flex flex-col gap-2">
+                      <p className="text-[11px] text-stone-600 leading-relaxed font-light">
+                        Phát hiện <span className="font-bold text-indigo-700">{getLocalViews().length} lượt click</span> lưu ngoại tuyến (offline). Bạn có muốn đồng bộ lên cơ sở dữ liệu?
+                      </p>
+                      <button
+                        id="btn-sync-views-cloud"
+                        onClick={handleSyncViews}
+                        disabled={syncingViews}
+                        className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[11px] font-semibold flex items-center justify-center gap-1.5 shadow-sm transition-all disabled:opacity-50 cursor-pointer border border-indigo-650"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${syncingViews ? 'animate-spin' : ''}`} />
+                        {syncingViews ? 'Đang đồng bộ...' : 'Đồng bộ lên Database ☁️'}
+                      </button>
+                    </div>
+                  )}
 
                   {/* Search for Views */}
                   <div className="relative">
