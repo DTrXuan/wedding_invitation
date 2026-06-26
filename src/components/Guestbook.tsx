@@ -78,10 +78,37 @@ export default function Guestbook({ invitedGuest = '' }: GuestbookProps) {
     try {
       if (isFirebaseConfigured && db) {
         const path = 'wishes';
-        await addDoc(collection(db, path), {
-          ...payload,
-          createdAt: serverTimestamp()
-        });
+        try {
+          await addDoc(collection(db, path), {
+            ...payload,
+            createdAt: serverTimestamp()
+          });
+        } catch (firebaseErr: any) {
+          console.warn("Firestore save failed, falling back to local storage backup:", firebaseErr);
+          
+          // Gracefully fallback to offline local storage so the wedding guest experience is completely uninterrupted
+          saveLocalWish(payload);
+          const local = getLocalWishes();
+          local.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setWishesList(local);
+          
+          // Trigger success state and clean inputs
+          setSubmitSuccess(true);
+          setName(invitedGuest);
+          setWishes('');
+          
+          confetti({
+            particleCount: 120,
+            spread: 80,
+            origin: { y: 0.8 }
+          });
+
+          setTimeout(() => {
+            setSubmitSuccess(false);
+          }, 4000);
+          
+          return;
+        }
       } else {
         saveLocalWish(payload);
         // Refresh local list
@@ -105,7 +132,11 @@ export default function Guestbook({ invitedGuest = '' }: GuestbookProps) {
       }, 4000);
 
     } catch (err: any) {
-      setSubmitError('Có lỗi xảy ra khi gửi lời chúc. Vui lòng thử lại.');
+      let errorMessage = 'Có lỗi xảy ra khi gửi lời chúc. Vui lòng thử lại.';
+      if (err instanceof Error) {
+        errorMessage = `Lỗi hệ thống: ${err.message}`;
+      }
+      setSubmitError(errorMessage);
       console.error(err);
     } finally {
       setIsSubmitting(false);

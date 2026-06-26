@@ -401,6 +401,16 @@ export default function GuestManager() {
             <p className="text-[10px] text-stone-400 font-mono mt-6">
               MÃ HOÁ: AES-256 SSL SECURITY ENFORCED
             </p>
+
+            <div className="mt-5 pt-5 border-t border-stone-200/60">
+              <button
+                type="button"
+                onClick={() => { window.location.hash = ''; }}
+                className="inline-flex items-center gap-1.5 text-xs text-stone-500 hover:text-[#0B2D1B] font-semibold transition-colors cursor-pointer"
+              >
+                ← Quay lại xem Thiệp Cưới
+              </button>
+            </div>
           </div>
         ) : (
           /* UNLOCKED FULL DASHBOARD */
@@ -444,6 +454,14 @@ export default function GuestManager() {
                     </button>
                   </>
                 )}
+
+                <button
+                  type="button"
+                  onClick={() => { window.location.hash = ''; }}
+                  className="px-3 py-2 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                >
+                  Xem thiệp 💌
+                </button>
 
                 <button
                   id="btn-sign-out"

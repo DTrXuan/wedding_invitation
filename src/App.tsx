@@ -22,7 +22,7 @@ import OptimizedImage from './components/OptimizedImage';
 export default function App() {
   const [invitedGuest, setInvitedGuest] = useState<string>('');
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [currentPage, setCurrentPage] = useState<'invitation' | 'schedule'>('invitation');
+  const [currentPage, setCurrentPage] = useState<'invitation' | 'schedule' | 'admin'>('invitation');
   const [isCardOpened, setIsCardOpened] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(true);
 
@@ -52,6 +52,9 @@ export default function App() {
     const handleHashChange = () => {
       if (window.location.hash === '#schedule') {
         setCurrentPage('schedule');
+        window.scrollTo({ top: 0 });
+      } else if (window.location.hash === '#admin') {
+        setCurrentPage('admin');
         window.scrollTo({ top: 0 });
       } else {
         setCurrentPage('invitation');
@@ -160,6 +163,14 @@ export default function App() {
   };
 
   const weddingDateTimestamp = new Date("2026-07-12T11:00:00").getTime();
+
+  if (currentPage === 'admin') {
+    return (
+      <div className="min-h-screen bg-[#FDFCF9] text-stone-850 font-sans relative selection:bg-amber-100 selection:text-stone-900 overflow-x-hidden py-10">
+        <GuestManager />
+      </div>
+    );
+  }
 
   if (currentPage === 'schedule') {
     return (
@@ -493,9 +504,6 @@ export default function App() {
 
       {/* UTILITY: SHARE CARD INVITATION GENERATOR */}
       {!invitedGuest && <ShareInvitation />}
-
-      {/* ADMIN GUEST MANAGER - strictly gated via URL hashtag or parameter */}
-      {showAdminPanel && <GuestManager />}
 
       {/* 8. FOOTER - GRATITUDE COUPLERS */}
       <footer className="bg-stone-900 text-stone-400 py-16 px-4 border-t border-stone-850 text-center select-none relative overflow-hidden">

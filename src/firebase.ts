@@ -41,7 +41,7 @@ const activeConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.appId : '') || '',
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.apiKey : '') || '',
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.authDomain : '') || '',
-  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.firestoreDatabaseId : '') || 'ai-studio-690599dd-421d-4b5c-bd15-9a21102ee9b1',
+  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.firestoreDatabaseId : '') || '(default)',
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.storageBucket : '') || '',
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.messagingSenderId : '') || '',
 };

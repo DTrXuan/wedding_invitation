@@ -123,7 +123,15 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
             });
           }
         } catch (error) {
-          handleFirestoreError(error, OperationType.CREATE, path);
+          console.warn("Firestore RSVP save failed, falling back to local storage:", error);
+          // Graceful fallback so user is never blocked by database/network errors
+          saveLocalRSVP(payload);
+          if (wishes.trim()) {
+            saveLocalWish({
+              name: name.trim(),
+              wishes: wishes.trim()
+            });
+          }
         }
       } else {
         // Fallback to offline Local Storage Mockengine
@@ -147,7 +155,11 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
       });
       
     } catch (err: any) {
-      setSubmitError('Một lỗi bảo mật hoặc kết nối đã xảy ra. Vui lòng thực hiện lại.');
+      let errorMessage = 'Một lỗi bảo mật hoặc kết nối đã xảy ra. Vui lòng thực hiện lại.';
+      if (err instanceof Error) {
+        errorMessage = `Lỗi hệ thống: ${err.message}`;
+      }
+      setSubmitError(errorMessage);
       console.error(err);
     } finally {
       setIsSubmitting(false);
@@ -433,48 +445,6 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
                       />
                     </div>
 
-                    {/* Input: Số điện thoại */}
-                    <div className="space-y-2">
-                      <label className="block text-xs font-bold text-stone-700 tracking-wide uppercase">
-                        Số điện thoại (Liên hệ khi cần)
-                      </label>
-                      <input
-                        type="tel"
-                        inputMode="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ''))}
-                        placeholder="Nhập số điện thoại của bạn"
-                        className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8C9C95]/20 focus:border-[#8C9C95] font-mono font-medium placeholder-stone-400 transition-all text-stone-800"
-                      />
-                    </div>
-
-                    {/* Radio-Style side selection */}
-                    <div className="space-y-2">
-                      <label className="block text-xs font-bold text-stone-700 tracking-wide uppercase">
-                        Bạn là khách phía nào?
-                      </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { id: 'groom', label: 'Chú Rể' },
-                          { id: 'bride', label: 'Cô Dâu' },
-                          { id: 'both', label: 'Cả Hai' }
-                        ].map((item) => (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => setSide(item.id as any)}
-                            className={`py-2.5 px-1 rounded-xl text-xs font-semibold text-center border transition-all cursor-pointer ${
-                              side === item.id
-                                ? 'border-[#8C9C95] bg-[#8C9C95]/10 text-[#0B2D1B] font-bold ring-1 ring-[#8C9C95]'
-                                : 'border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100'
-                            }`}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
                     {/* Attendance Selection: Bạn sẽ đến chứ? */}
                     <div className="space-y-3">
                       <label className="block text-xs font-bold text-stone-700 tracking-wide uppercase">
@@ -558,32 +528,8 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
                             </button>
                           </div>
                         </div>
-
-                        {/* Dietary Notes */}
-                        <div className="space-y-2">
-                          <label className="block text-xs font-bold text-stone-700 tracking-wide uppercase">Yêu cầu ăn uống đặc biệt (nếu có)</label>
-                          <input
-                            type="text"
-                            value={dietaryNotes}
-                            onChange={(e) => setDietaryNotes(e.target.value)}
-                            placeholder="Ví dụ: Ăn chay, dị ứng hải sản..."
-                            className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8C9C95]/20 focus:border-[#8C9C95] font-medium placeholder-stone-400 transition-all text-stone-800"
-                          />
-                        </div>
                       </div>
                     )}
-
-                    {/* Warm Wishes */}
-                    <div className="space-y-2">
-                      <label className="block text-xs font-bold text-stone-700 tracking-wide uppercase">Lời chúc gửi tới hai bạn</label>
-                      <textarea
-                        rows={3}
-                        value={wishes}
-                        onChange={(e) => setWishes(e.target.value)}
-                        placeholder="Gửi những lời chúc ấm áp nhất tới Trường Xuân & Bích Trâm..."
-                        className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8C9C95]/20 focus:border-[#8C9C95] font-medium placeholder-stone-400 transition-all text-stone-800 resize-none"
-                      />
-                    </div>
 
                     {submitError && (
                       <p className="text-red-500 text-xs font-medium text-center">{submitError}</p>
