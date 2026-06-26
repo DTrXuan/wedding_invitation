@@ -16,7 +16,7 @@ service cloud.firestore {
       // Bootstrapped admin using the user's active configuration email
       return isSignedIn() && 
         request.auth.token.email_verified == true && 
-        (request.auth.token.email == 'Dtruongxuan1397@gmail.com');
+        (request.auth.token.email.lower() == 'dtruongxuan1397@gmail.com');
     }
 
     function isValidId(id) {
@@ -94,6 +94,18 @@ service cloud.firestore {
 
       // Only the Admin can read, update, or delete view logs
       allow read, update, delete: if isAdmin();
+    }
+
+    // Rules for Guests collection
+    match /guests/{guestId} {
+      // Anyone can read (to search for matching name) and create a guest if they don't exist
+      allow read, create: if true;
+
+      // Anyone can update guest views/viewsCount, but non-admins are restricted from editing the guest's name
+      allow update: if isAdmin() || (incoming().name == existing().name);
+
+      // Only Admin can delete a guest from the list
+      allow delete: if isAdmin();
     }
   }
 }

@@ -87,6 +87,41 @@
       "required": [
         "clickedAt"
       ]
+    },
+    "Guest": {
+      "title": "Guest",
+      "description": "Thông tin và thống kê mở thiệp của từng khách mời",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Tên khách mời"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Số điện thoại khách mời"
+        },
+        "side": {
+          "type": "string",
+          "description": "Đại diện bên phía gia đình: 'bride', 'groom', 'both'"
+        },
+        "viewsCount": {
+          "type": "integer",
+          "description": "Tổng số lượt click mở thiệp cưới"
+        },
+        "lastViewedAt": {
+          "type": "string",
+          "description": "Thời gian xem gần nhất"
+        },
+        "views": {
+          "type": "array",
+          "description": "Danh sách chi tiết các lần bấm xem"
+        }
+      },
+      "required": [
+        "name",
+        "viewsCount"
+      ]
     }
   },
   "firestore": {
@@ -101,6 +136,10 @@
     "views/{viewId}": {
       "schema": "View",
       "description": "Lịch sử khách mời mở thiệp"
+    },
+    "guests/{guestId}": {
+      "schema": "Guest",
+      "description": "Danh sách khách mời chính thức để gửi thiệp"
     }
   }
 }

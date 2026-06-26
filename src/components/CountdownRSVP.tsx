@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 
 // Import our database and service handles
-import { db, saveLocalRSVP, saveLocalWish, isFirebaseConfigured, handleFirestoreError, OperationType, addDocWithTimeout } from '../firebase';
+import { db, saveLocalRSVP, saveLocalWish, isFirebaseConfigured, handleFirestoreError, OperationType, addDocWithTimeout, syncGuestFromRSVP } from '../firebase';
 import { collection, serverTimestamp } from 'firebase/firestore';
 import { WeddingEventDetails } from '../types';
 
@@ -101,6 +101,9 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
     };
 
     try {
+      // Sync or auto-create guest in guests collection
+      await syncGuestFromRSVP(name.trim(), phone.trim(), activeEvent.side || 'both');
+
       if (isFirebaseConfigured && db) {
         // Safe database save on Firestore
         const path = 'rsvps';

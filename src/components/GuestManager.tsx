@@ -81,7 +81,7 @@ export default function GuestManager() {
       const unsubscribe = onAuthStateChanged(auth, (user) => {
         setCurrentUser(user);
         // If user is verified admin (matching email Dtruongxuan1397@gmail.com)
-        if (user && user.email === 'Dtruongxuan1397@gmail.com') {
+        if (user && user.email?.toLowerCase() === 'dtruongxuan1397@gmail.com') {
           setIsAdminUnlocked(true);
           localStorage.setItem('wedding_admin_unlocked', 'true');
         }
@@ -319,7 +319,7 @@ export default function GuestManager() {
     const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
-      if (result.user && result.user.email === 'Dtruongxuan1397@gmail.com') {
+      if (result.user && result.user.email?.toLowerCase() === 'dtruongxuan1397@gmail.com') {
         setIsAdminUnlocked(true);
         localStorage.setItem('wedding_admin_unlocked', 'true');
       } else {
@@ -344,7 +344,8 @@ export default function GuestManager() {
   const handleDelete = async (id: string) => {
     if (!confirm('Bạn có chắc chắn muốn xóa khách mời này khỏi danh sách không?')) return;
 
-    if (isFirebaseConfigured && db) {
+    const isGoogleAdmin = currentUser?.email?.toLowerCase() === 'dtruongxuan1397@gmail.com';
+    if (isFirebaseConfigured && db && isGoogleAdmin) {
       try {
         await deleteDoc(doc(db, 'rsvps', id));
       } catch (err) {
@@ -360,7 +361,8 @@ export default function GuestManager() {
   const handleDeleteWish = async (id: string) => {
     if (!confirm('Bạn có chắc chắn muốn xóa lời chúc này không?')) return;
 
-    if (isFirebaseConfigured && db) {
+    const isGoogleAdmin = currentUser?.email?.toLowerCase() === 'dtruongxuan1397@gmail.com';
+    if (isFirebaseConfigured && db && isGoogleAdmin) {
       try {
         await deleteDoc(doc(db, 'wishes', id));
       } catch (err) {
@@ -376,7 +378,8 @@ export default function GuestManager() {
   const handleDeleteView = async (id: string) => {
     if (!confirm('Bạn có chắc chắn muốn xóa lịch sử click này không?')) return;
 
-    if (isFirebaseConfigured && db) {
+    const isGoogleAdmin = currentUser?.email?.toLowerCase() === 'dtruongxuan1397@gmail.com';
+    if (isFirebaseConfigured && db && isGoogleAdmin) {
       try {
         await deleteDoc(doc(db, 'views', id));
       } catch (err) {
@@ -425,7 +428,8 @@ export default function GuestManager() {
   const handleDeleteGuest = async (id: string) => {
     if (!confirm('Bạn có chắc chắn muốn xóa khách mời này khỏi danh sách không?')) return;
 
-    if (isFirebaseConfigured && db) {
+    const isGoogleAdmin = currentUser?.email?.toLowerCase() === 'dtruongxuan1397@gmail.com';
+    if (isFirebaseConfigured && db && isGoogleAdmin) {
       try {
         await deleteDoc(doc(db, 'guests', id));
       } catch (err) {
