@@ -48,18 +48,18 @@ const GITHUB_PAGES_FIREBASE_CONFIG = {
   storageBucket: "sunny-primacy-vgxqk.firebasestorage.app",      // Ví dụ: "wedding-invitation.appspot.com"
   messagingSenderId: "1030577931299",  // Ví dụ: "1234567890"
   appId: "1:1030577931299:web:669a4324f3ec6349ea5d96",              // Ví dụ: "1:1234567890:web:abcdef..."
-  databaseId: "(default)" // Giữ nguyên mặc định
+  databaseId: "ai-studio-thipcitrngxunbch-690599dd-421d-4b5c-bd15-9a21102ee9b1" // ID cơ sở dữ liệu Firestore được chỉ định của bạn
 };
 
-// Load values prioritizing Environment Variables, falling back to static config and compile-time injected values
+// Load values prioritizing Environment Variables, falling back to compile-time injected values and GITHUB_PAGES_FIREBASE_CONFIG
 const activeConfig = {
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || GITHUB_PAGES_FIREBASE_CONFIG.projectId || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.projectId : '') || '',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || GITHUB_PAGES_FIREBASE_CONFIG.appId || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.appId : '') || '',
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || GITHUB_PAGES_FIREBASE_CONFIG.apiKey || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.apiKey : '') || '',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || GITHUB_PAGES_FIREBASE_CONFIG.authDomain || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.authDomain : '') || '',
-  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || GITHUB_PAGES_FIREBASE_CONFIG.databaseId || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.firestoreDatabaseId : '') || '(default)',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || GITHUB_PAGES_FIREBASE_CONFIG.storageBucket || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.storageBucket : '') || '',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || GITHUB_PAGES_FIREBASE_CONFIG.messagingSenderId || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.messagingSenderId : '') || '',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.projectId : '') || GITHUB_PAGES_FIREBASE_CONFIG.projectId || '',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.appId : '') || GITHUB_PAGES_FIREBASE_CONFIG.appId || '',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.apiKey : '') || GITHUB_PAGES_FIREBASE_CONFIG.apiKey || '',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.authDomain : '') || GITHUB_PAGES_FIREBASE_CONFIG.authDomain || '',
+  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.firestoreDatabaseId : '') || GITHUB_PAGES_FIREBASE_CONFIG.databaseId || '(default)',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.storageBucket : '') || GITHUB_PAGES_FIREBASE_CONFIG.storageBucket || '',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.messagingSenderId : '') || GITHUB_PAGES_FIREBASE_CONFIG.messagingSenderId || '',
 };
 
 // Check if Firebase is configured with real credentials
@@ -79,7 +79,11 @@ let firebaseAuth: any = null;
 if (isFirebaseConfigured) {
   try {
     firebaseApp = getApps().length === 0 ? initializeApp(activeConfig) : getApp();
-    firebaseDb = getFirestore(firebaseApp, activeConfig.firestoreDatabaseId);
+    if (activeConfig.firestoreDatabaseId && activeConfig.firestoreDatabaseId !== '(default)' && activeConfig.firestoreDatabaseId !== '') {
+      firebaseDb = getFirestore(firebaseApp, activeConfig.firestoreDatabaseId);
+    } else {
+      firebaseDb = getFirestore(firebaseApp);
+    }
     firebaseAuth = getAuth(firebaseApp);
   } catch (error) {
     console.error('Lỗi khởi tạo Firebase:', error);
@@ -269,15 +273,37 @@ export function deleteLocalView(id: string): ViewSubmission[] {
   return filtered;
 }
 
+// Helper to perform a Firestore write with a timeout to prevent hanging on offline clients
+export async function addDocWithTimeout(collectionRef: any, data: any, timeoutMs: number = 4000) {
+  let timeoutId: any;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error('Firebase operation timed out (Firestore may be offline or configuration is incorrect)'));
+    }, timeoutMs);
+  });
+  
+  try {
+    const result = await Promise.race([
+      addDoc(collectionRef, data),
+      timeoutPromise
+    ]);
+    clearTimeout(timeoutId);
+    return result;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
 export async function trackCardView(guestName: string) {
   const nameToSave = guestName ? guestName.trim() : 'Quý khách ẩn danh';
   try {
     if (isFirebaseConfigured && db) {
-      await addDoc(collection(db, 'views'), {
+      await addDocWithTimeout(collection(db, 'views'), {
         guestName: nameToSave,
         userAgent: navigator.userAgent,
         clickedAt: serverTimestamp()
-      });
+      }, 4000);
     } else {
       saveLocalView(nameToSave);
     }

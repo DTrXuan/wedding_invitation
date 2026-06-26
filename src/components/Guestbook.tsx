@@ -1,7 +1,7 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { Heart, MessageSquare, Sparkles } from 'lucide-react';
-import { db, isFirebaseConfigured, getLocalWishes, saveLocalWish, handleFirestoreError, OperationType } from '../firebase';
-import { collection, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db, isFirebaseConfigured, getLocalWishes, saveLocalWish, handleFirestoreError, OperationType, addDocWithTimeout } from '../firebase';
+import { collection, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { WishSubmission } from '../types';
 import confetti from 'canvas-confetti';
 
@@ -94,10 +94,10 @@ export default function Guestbook({ invitedGuest = '' }: GuestbookProps) {
       if (isFirebaseConfigured && db) {
         const path = 'wishes';
         try {
-          await addDoc(collection(db, path), {
+          await addDocWithTimeout(collection(db, path), {
             ...payload,
             createdAt: serverTimestamp()
-          });
+          }, 4000);
         } catch (firebaseErr: any) {
           console.warn("Firestore save failed, falling back to local storage backup:", firebaseErr);
           

@@ -4,8 +4,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 
 // Import our database and service handles
-import { db, saveLocalRSVP, saveLocalWish, isFirebaseConfigured, handleFirestoreError, OperationType } from '../firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db, saveLocalRSVP, saveLocalWish, isFirebaseConfigured, handleFirestoreError, OperationType, addDocWithTimeout } from '../firebase';
+import { collection, serverTimestamp } from 'firebase/firestore';
 import { WeddingEventDetails } from '../types';
 
 interface CountdownRSVPProps {
@@ -105,18 +105,18 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
         // Safe database save on Firestore
         const path = 'rsvps';
         try {
-          await addDoc(collection(db, path), {
+          await addDocWithTimeout(collection(db, path), {
             ...payload,
             createdAt: serverTimestamp()
-          });
+          }, 4000);
 
           // Concurrently save the wish to the public wishes board if any
           if (wishes.trim()) {
-            await addDoc(collection(db, 'wishes'), {
+            await addDocWithTimeout(collection(db, 'wishes'), {
               name: name.trim(),
               wishes: wishes.trim(),
               createdAt: serverTimestamp()
-            });
+            }, 4000);
           }
         } catch (error) {
           console.warn("Firestore RSVP save failed, falling back to local storage:", error);
