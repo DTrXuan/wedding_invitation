@@ -42,12 +42,12 @@ import { RSVPSubmission, WishSubmission, ViewSubmission } from './types';
 // vào đây để khi deploy lên GitHub Pages (hoặc hosting tĩnh khác), ứng dụng vẫn kết nối trực tuyến 
 // tới cơ sở dữ liệu Firebase của bạn thay vì chạy chế độ ngoại tuyến (localStorage).
 const GITHUB_PAGES_FIREBASE_CONFIG = {
-  apiKey: "",             // Ví dụ: "AIzaSy..."
-  authDomain: "",         // Ví dụ: "wedding-invitation.firebaseapp.com"
-  projectId: "",          // Ví dụ: "wedding-invitation"
-  storageBucket: "",      // Ví dụ: "wedding-invitation.appspot.com"
-  messagingSenderId: "",  // Ví dụ: "1234567890"
-  appId: "",              // Ví dụ: "1:1234567890:web:abcdef..."
+  apiKey: "AIzaSyD_Jf4BNJpt1MzkhwMCugLf7z2cOSuZw5A",             // Ví dụ: "AIzaSy..."
+  authDomain: "sunny-primacy-vgxqk.firebaseapp.com",         // Ví dụ: "wedding-invitation.firebaseapp.com"
+  projectId: "sunny-primacy-vgxqk",          // Ví dụ: "wedding-invitation"
+  storageBucket: "sunny-primacy-vgxqk.firebasestorage.app",      // Ví dụ: "wedding-invitation.appspot.com"
+  messagingSenderId: "1030577931299",  // Ví dụ: "1234567890"
+  appId: "1:1030577931299:web:669a4324f3ec6349ea5d96",              // Ví dụ: "1:1234567890:web:abcdef..."
   databaseId: "(default)" // Giữ nguyên mặc định
 };
 
