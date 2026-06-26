@@ -307,15 +307,16 @@ export default function App() {
       </AnimatePresence>
 
       {/* 🚀 STICKY CORE HEADER / NAVIGATION 🚀 */}
-      <nav className="fixed top-4 left-1/2 -translate-x-1/2 z-40 w-[92%] max-w-lg bg-[#0B2D1B]/95 backdrop-blur-md rounded-full px-5 py-2.5 border border-amber-500/20 shadow-xl flex items-center justify-between text-amber-100 animate-fade-in">
-        <span className="font-serif text-xs font-extrabold tracking-widest text-amber-300 flex items-center gap-1.5 selection:bg-transparent">
-          囍 Trường Xuân &amp; Bích Trâm
+      <nav className="fixed top-3 left-1/2 -translate-x-1/2 z-40 w-[90%] max-w-md bg-[#0B2D1B]/95 backdrop-blur-md rounded-full px-4 py-1.5 border border-amber-500/20 shadow-xl flex items-center justify-between text-amber-100 animate-fade-in">
+        <span className="font-serif text-[10px] sm:text-xs font-bold tracking-widest text-amber-300 flex items-center gap-1 selection:bg-transparent">
+          <span className="sm:hidden">TX 囍 BT</span>
+          <span className="hidden sm:inline">Trường Xuân 囍 Bích Trâm</span>
         </span>
-        <div className="flex items-center gap-1.5 md:gap-3">
+        <div className="flex items-center gap-1.5">
           <button
             id="nav-btn-invitation"
             onClick={() => { window.location.hash = ''; }}
-            className={`px-3 py-1.5 rounded-full text-[11px] font-bold tracking-wide transition-all cursor-pointer ${
+            className={`px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wide transition-all cursor-pointer ${
               currentPage === 'invitation' 
                 ? 'bg-amber-400 text-[#0B2D1B] shadow-sm' 
                 : 'text-amber-200/70 hover:text-white bg-transparent'
@@ -326,7 +327,7 @@ export default function App() {
           <button
             id="nav-btn-schedule"
             onClick={() => { window.location.hash = '#schedule'; }}
-            className={`px-3 py-1.5 rounded-full text-[11px] font-bold tracking-wide transition-all cursor-pointer flex items-center gap-1 ${
+            className={`px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wide transition-all cursor-pointer flex items-center gap-1 ${
               currentPage === 'schedule'
                 ? 'bg-amber-400 text-[#0B2D1B] shadow-sm'
                 : 'text-amber-200/70 hover:text-white bg-transparent'
