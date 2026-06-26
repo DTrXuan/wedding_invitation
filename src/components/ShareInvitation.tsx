@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Share2, Copy, Check, MessageCircle, Link, MailOpen, Heart } from 'lucide-react';
+import { syncGuestFromRSVP } from '../firebase';
 
 export default function ShareInvitation() {
   const [guestName, setGuestName] = useState('');
@@ -23,28 +24,43 @@ ${guestDisplay} nhấn vào link để cùng theo dõi ngày cưới, địa đi
 
 Trân trọng kính mời! ❤️`;
 
-  const handleCopyLink = () => {
+  const ensureGuestAdded = async () => {
+    const trimmedName = guestName.trim();
+    if (trimmedName) {
+      try {
+        await syncGuestFromRSVP(trimmedName);
+      } catch (err) {
+        console.warn("Failed to automatically synchronize guest:", err);
+      }
+    }
+  };
+
+  const handleCopyLink = async () => {
     navigator.clipboard.writeText(invitationUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
+    await ensureGuestAdded();
   };
 
-  const handleCopyText = () => {
+  const handleCopyText = async () => {
     navigator.clipboard.writeText(customMessage);
     setCopiedText(true);
     setTimeout(() => setCopiedText(false), 2000);
+    await ensureGuestAdded();
   };
 
-  const handleShareZalo = () => {
+  const handleShareZalo = async () => {
     // Standard Zalo share portal
     const url = `https://sp.zalo.me/share_to_zalo?url=${encodeURIComponent(invitationUrl)}&title=${encodeURIComponent('Thiệp cưới online Trường Xuân & Bích Trâm')}`;
     window.open(url, '_blank');
+    await ensureGuestAdded();
   };
 
-  const handleShareMessenger = () => {
+  const handleShareMessenger = async () => {
     // Standard Facebook Messenger send action
     const url = `https://www.facebook.com/dialog/send?link=${encodeURIComponent(invitationUrl)}&app_id=123456789&redirect_uri=${encodeURIComponent(invitationUrl)}`;
     window.open(url, '_blank');
+    await ensureGuestAdded();
   };
 
   return (

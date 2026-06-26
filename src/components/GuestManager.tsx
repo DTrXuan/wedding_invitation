@@ -87,6 +87,17 @@ export default function GuestManager() {
     }
   }, []);
 
+  // Listen for custom guests-updated event to keep offline list in sync instantly
+  useEffect(() => {
+    const handleGuestsUpdated = () => {
+      setSyncCount(c => c + 1);
+    };
+    window.addEventListener('guests-updated', handleGuestsUpdated);
+    return () => {
+      window.removeEventListener('guests-updated', handleGuestsUpdated);
+    };
+  }, []);
+
   // Fetch or bind RSVPs
   useEffect(() => {
     if (!isAdminUnlocked) return;

@@ -462,7 +462,7 @@ export async function syncGuestFromRSVP(name: string) {
       const list = getLocalGuests();
       let found = false;
       const updatedList = list.map(g => {
-        if (g.name.trim() === nameToSave) {
+        if (g.name.trim().toLowerCase() === nameToSave.toLowerCase()) {
           found = true;
         }
         return g;
@@ -479,6 +479,9 @@ export async function syncGuestFromRSVP(name: string) {
       }
       localStorage.setItem(LOCAL_GUESTS_KEY, JSON.stringify(updatedList));
     }
+
+    // Notify application components that guests list has been modified
+    window.dispatchEvent(new Event('guests-updated'));
   } catch (error) {
     console.warn("syncGuestFromRSVP failed:", error);
   }
