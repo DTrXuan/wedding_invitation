@@ -36,15 +36,30 @@ declare const __FIREBASE_APPLET_CONFIG__: {
 
 import { RSVPSubmission, WishSubmission, ViewSubmission } from './types';
 
-// Load values prioritizing Environment Variables, falling back to compile-time injected values
+// ---------------- CẤU HÌNH FIREBASE CHO GITHUB PAGES / PRODUCTION ----------------
+// Vì các khóa và thông số kết nối của Firebase Client SDK hoàn toàn là công khai (public) 
+// trên trình duyệt của người dùng cuối, bạn có thể điền thông tin cấu hình Firebase thực tế của bạn 
+// vào đây để khi deploy lên GitHub Pages (hoặc hosting tĩnh khác), ứng dụng vẫn kết nối trực tuyến 
+// tới cơ sở dữ liệu Firebase của bạn thay vì chạy chế độ ngoại tuyến (localStorage).
+const GITHUB_PAGES_FIREBASE_CONFIG = {
+  apiKey: "",             // Ví dụ: "AIzaSy..."
+  authDomain: "",         // Ví dụ: "wedding-invitation.firebaseapp.com"
+  projectId: "",          // Ví dụ: "wedding-invitation"
+  storageBucket: "",      // Ví dụ: "wedding-invitation.appspot.com"
+  messagingSenderId: "",  // Ví dụ: "1234567890"
+  appId: "",              // Ví dụ: "1:1234567890:web:abcdef..."
+  databaseId: "(default)" // Giữ nguyên mặc định
+};
+
+// Load values prioritizing Environment Variables, falling back to static config and compile-time injected values
 const activeConfig = {
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.projectId : '') || '',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.appId : '') || '',
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.apiKey : '') || '',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.authDomain : '') || '',
-  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.firestoreDatabaseId : '') || '(default)',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.storageBucket : '') || '',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.messagingSenderId : '') || '',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || GITHUB_PAGES_FIREBASE_CONFIG.projectId || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.projectId : '') || '',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || GITHUB_PAGES_FIREBASE_CONFIG.appId || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.appId : '') || '',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || GITHUB_PAGES_FIREBASE_CONFIG.apiKey || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.apiKey : '') || '',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || GITHUB_PAGES_FIREBASE_CONFIG.authDomain || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.authDomain : '') || '',
+  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || GITHUB_PAGES_FIREBASE_CONFIG.databaseId || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.firestoreDatabaseId : '') || '(default)',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || GITHUB_PAGES_FIREBASE_CONFIG.storageBucket || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.storageBucket : '') || '',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || GITHUB_PAGES_FIREBASE_CONFIG.messagingSenderId || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.messagingSenderId : '') || '',
 };
 
 // Check if Firebase is configured with real credentials
