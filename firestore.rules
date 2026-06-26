@@ -16,7 +16,7 @@ service cloud.firestore {
       // Bootstrapped admin using the user's active configuration email
       return isSignedIn() && 
         request.auth.token.email_verified == true && 
-        (request.auth.token.email.lower() == 'dtruongxuan1397@gmail.com');
+        (request.auth.token.email == 'Dtruongxuan1397@gmail.com' || request.auth.token.email == 'dtruongxuan1397@gmail.com');
     }
 
     function isValidId(id) {
@@ -34,22 +34,19 @@ service cloud.firestore {
     // Helper to validate the RSVP payload shape and constraints
     function isValidRSVP(data) {
       return data.keys().hasAll(['name', 'attendance', 'guestCount']) 
-        && data.keys().size() <= 8
-        && data.name is string && data.name.size() > 0 && data.name.size() <= 150
+        && data.keys().size() <= 5
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 300
         && data.attendance in ['yes', 'no', 'maybe']
-        && data.guestCount is int && data.guestCount >= 0 && data.guestCount <= 20
-        && data.get('phone', '') is string && data.get('phone', '').size() <= 30
-        && data.get('wishes', '') is string && data.get('wishes', '').size() <= 2000
-        && (!data.keys().hasAll(['side']) || data.side in ['bride', 'groom', 'both'])
-        && (!data.keys().hasAll(['dietaryNotes']) || (data.dietaryNotes is string && data.dietaryNotes.size() <= 1000));
+        && (data.guestCount is int || data.guestCount is float) && data.guestCount >= 0 && data.guestCount <= 50
+        && data.get('wishes', '') is string && data.get('wishes', '').size() <= 3000;
     }
 
     // Helper to validate public wedding wishes (Guestbook)
     function isValidWish(data) {
       return data.keys().hasAll(['name', 'wishes'])
         && data.keys().size() <= 4
-        && data.name is string && data.name.size() > 0 && data.name.size() <= 150
-        && data.wishes is string && data.wishes.size() > 0 && data.wishes.size() <= 2000;
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 300
+        && data.wishes is string && data.wishes.size() > 0 && data.wishes.size() <= 3000;
     }
 
     // Helper to validate view tracking

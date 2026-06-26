@@ -66,12 +66,9 @@ export default function GuestManager() {
   const [wishSearchQuery, setWishSearchQuery] = useState('');
   const [viewSearchQuery, setViewSearchQuery] = useState('');
   const [guestsSearchQuery, setGuestsSearchQuery] = useState('');
-  const [guestsSideFilter, setGuestsSideFilter] = useState<'all' | 'bride' | 'groom' | 'both'>('all');
 
   // Form states for adding guests
   const [newGuestName, setNewGuestName] = useState('');
-  const [newGuestPhone, setNewGuestPhone] = useState('');
-  const [newGuestSide, setNewGuestSide] = useState<'bride' | 'groom' | 'both'>('both');
   const [isAddingGuest, setIsAddingGuest] = useState(false);
   const [copiedGuestId, setCopiedGuestId] = useState<string | null>(null);
 
@@ -110,12 +107,9 @@ export default function GuestManager() {
             list.push({
               id: docSnap.id,
               name: d.name || '',
-              phone: d.phone || '',
               attendance: d.attendance || 'yes',
               guestCount: d.guestCount || 0,
-              side: d.side || 'bride',
               wishes: d.wishes || '',
-              dietaryNotes: d.dietaryNotes || '',
               createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : d.createdAt
             } as RSVPSubmission);
           });
@@ -266,8 +260,6 @@ export default function GuestManager() {
             list.push({
               id: docSnap.id,
               name: d.name || '',
-              phone: d.phone || '',
-              side: d.side || 'both',
               viewsCount: d.viewsCount || 0,
               lastViewedAt: d.lastViewedAt?.toDate ? d.lastViewedAt.toDate().toISOString() : d.lastViewedAt || null,
               views: d.views || []
@@ -344,8 +336,12 @@ export default function GuestManager() {
   const handleDelete = async (id: string) => {
     if (!confirm('Bạn có chắc chắn muốn xóa khách mời này khỏi danh sách không?')) return;
 
-    const isGoogleAdmin = currentUser?.email?.toLowerCase() === 'dtruongxuan1397@gmail.com';
-    if (isFirebaseConfigured && db && isGoogleAdmin) {
+    if (isFirebaseConfigured && db) {
+      const isGoogleAdmin = currentUser?.email?.toLowerCase() === 'dtruongxuan1397@gmail.com';
+      if (!isGoogleAdmin) {
+        alert('Tính năng xóa yêu cầu đăng nhập bằng tài khoản Google Admin (dtruongxuan1397@gmail.com).');
+        return;
+      }
       try {
         await deleteDoc(doc(db, 'rsvps', id));
       } catch (err) {
@@ -361,8 +357,12 @@ export default function GuestManager() {
   const handleDeleteWish = async (id: string) => {
     if (!confirm('Bạn có chắc chắn muốn xóa lời chúc này không?')) return;
 
-    const isGoogleAdmin = currentUser?.email?.toLowerCase() === 'dtruongxuan1397@gmail.com';
-    if (isFirebaseConfigured && db && isGoogleAdmin) {
+    if (isFirebaseConfigured && db) {
+      const isGoogleAdmin = currentUser?.email?.toLowerCase() === 'dtruongxuan1397@gmail.com';
+      if (!isGoogleAdmin) {
+        alert('Tính năng xóa yêu cầu đăng nhập bằng tài khoản Google Admin (dtruongxuan1397@gmail.com).');
+        return;
+      }
       try {
         await deleteDoc(doc(db, 'wishes', id));
       } catch (err) {
@@ -378,8 +378,12 @@ export default function GuestManager() {
   const handleDeleteView = async (id: string) => {
     if (!confirm('Bạn có chắc chắn muốn xóa lịch sử click này không?')) return;
 
-    const isGoogleAdmin = currentUser?.email?.toLowerCase() === 'dtruongxuan1397@gmail.com';
-    if (isFirebaseConfigured && db && isGoogleAdmin) {
+    if (isFirebaseConfigured && db) {
+      const isGoogleAdmin = currentUser?.email?.toLowerCase() === 'dtruongxuan1397@gmail.com';
+      if (!isGoogleAdmin) {
+        alert('Tính năng xóa yêu cầu đăng nhập bằng tài khoản Google Admin (dtruongxuan1397@gmail.com).');
+        return;
+      }
       try {
         await deleteDoc(doc(db, 'views', id));
       } catch (err) {
@@ -398,8 +402,6 @@ export default function GuestManager() {
 
     const payload = {
       name: newGuestName.trim(),
-      phone: newGuestPhone.trim(),
-      side: newGuestSide,
       viewsCount: 0,
       views: []
     };
@@ -408,8 +410,6 @@ export default function GuestManager() {
       try {
         await addDocWithTimeout(collection(db, 'guests'), payload, 4000);
         setNewGuestName('');
-        setNewGuestPhone('');
-        setNewGuestSide('both');
         setIsAddingGuest(false);
       } catch (err) {
         alert('Lỗi khi thêm khách mời vào Firestore: ' + err);
@@ -417,8 +417,6 @@ export default function GuestManager() {
     } else {
       saveLocalGuest(payload);
       setNewGuestName('');
-      setNewGuestPhone('');
-      setNewGuestSide('both');
       setIsAddingGuest(false);
       setSyncCount(c => c + 1);
     }
@@ -428,8 +426,12 @@ export default function GuestManager() {
   const handleDeleteGuest = async (id: string) => {
     if (!confirm('Bạn có chắc chắn muốn xóa khách mời này khỏi danh sách không?')) return;
 
-    const isGoogleAdmin = currentUser?.email?.toLowerCase() === 'dtruongxuan1397@gmail.com';
-    if (isFirebaseConfigured && db && isGoogleAdmin) {
+    if (isFirebaseConfigured && db) {
+      const isGoogleAdmin = currentUser?.email?.toLowerCase() === 'dtruongxuan1397@gmail.com';
+      if (!isGoogleAdmin) {
+        alert('Tính năng xóa yêu cầu đăng nhập bằng tài khoản Google Admin (dtruongxuan1397@gmail.com).');
+        return;
+      }
       try {
         await deleteDoc(doc(db, 'guests', id));
       } catch (err) {
@@ -459,12 +461,9 @@ export default function GuestManager() {
 
     const payload = {
       name: randomName,
-      phone: '09' + Math.floor(10000000 + Math.random() * 90000000),
       attendance: randomStatus,
-      side: 'both' as const,
       guestCount: randomStatus === 'yes' ? Math.floor(1 + Math.random() * 3) : 0,
-      wishes: randomWish,
-      dietaryNotes: ''
+      wishes: randomWish
     };
 
     if (isFirebaseConfigured && db) {
@@ -503,14 +502,13 @@ export default function GuestManager() {
 
     // Build headers including UTF-8 Byte Order Mark (BOM) to correctly display Vietnamese accents in Excel
     const BOM = '\uFEFF';
-    let csvContent = BOM + 'Họ Tên Khách,Số Điện Thoại,Trạng Thái,Sĩ Số Tham Gia,Lời Chúc Dự Tiệc,Thời Gian\n';
+    let csvContent = BOM + 'Họ Tên Khách,Trạng Thái,Sĩ Số Tham Gia,Lời Chúc Dự Tiệc,Thời Gian\n';
 
     rsvps.forEach(r => {
       const statusText = r.attendance === 'yes' ? 'Tham Dự' : r.attendance === 'no' ? 'Bất Khả Kháng' : 'Có Thể';
       
       const row = [
         `"${r.name.replace(/"/g, '""')}"`,
-        `"${r.phone}"`,
         `"${statusText}"`,
         r.guestCount,
         `"${r.wishes.replace(/"/g, '""')}"`,
@@ -539,8 +537,7 @@ export default function GuestManager() {
   // Live filter arrays
   const filteredRSVPs = rsvps.filter(r => {
     const matchesSearch = 
-      r.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      r.phone.includes(searchQuery);
+      r.name.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || r.attendance === statusFilter;
 
@@ -549,12 +546,9 @@ export default function GuestManager() {
 
   const filteredGuests = guests.filter(g => {
     const matchesSearch = 
-      g.name.toLowerCase().includes(guestsSearchQuery.toLowerCase()) || 
-      (g.phone && g.phone.includes(guestsSearchQuery));
-    
-    const matchesSide = guestsSideFilter === 'all' || g.side === guestsSideFilter;
+      g.name.toLowerCase().includes(guestsSearchQuery.toLowerCase());
 
-    return matchesSearch && matchesSide;
+    return matchesSearch;
   });
 
   return (
@@ -847,7 +841,6 @@ export default function GuestManager() {
                       <thead>
                         <tr className="bg-stone-50 text-stone-500 border-b border-stone-200 uppercase font-mono tracking-wider">
                           <th className="py-3 px-4 font-normal">Họ Tên Khách</th>
-                          <th className="py-3 px-4 font-normal">SĐT Bảo Mật</th>
                           <th className="py-3 px-4 font-normal">Xác Nhận</th>
                           <th className="py-3 px-4 font-normal">Sĩ Số</th>
                           <th className="py-3 px-4 font-normal">Lời Chúc</th>
@@ -857,20 +850,17 @@ export default function GuestManager() {
                       <tbody className="divide-y divide-stone-200 font-light">
                         {loading ? (
                           <tr>
-                            <td colSpan={6} className="text-center py-8 text-stone-400 font-mono">Đang nạp danh sách dữ liệu...</td>
+                            <td colSpan={5} className="text-center py-8 text-stone-400 font-mono">Đang nạp danh sách dữ liệu...</td>
                           </tr>
                         ) : filteredRSVPs.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="text-center py-8 text-stone-400 font-mono">Không tìm thấy vị khách nào trùng khớp.</td>
+                            <td colSpan={5} className="text-center py-8 text-stone-400 font-mono">Không tìm thấy vị khách nào trùng khớp.</td>
                           </tr>
                         ) : (
                           filteredRSVPs.map((r) => (
                             <tr key={r.id} className="hover:bg-stone-50 transition-all text-stone-850">
                               <td className="py-3 md:py-4 px-4 font-semibold text-stone-800">
                                 {r.name}
-                              </td>
-                              <td className="py-3 md:py-4 px-4 font-mono text-[11px] text-stone-500">
-                                {r.phone || '—'}
                               </td>
                               <td className="py-3 md:py-4 px-4">
                                 {r.attendance === 'yes' ? (
@@ -1054,45 +1044,17 @@ export default function GuestManager() {
                         <UserPlus className="w-4 h-4" /> Khai báo thông tin khách mời
                       </h5>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="space-y-1.5">
-                          <label className="block text-[11px] font-semibold text-stone-600">Họ &amp; Tên Khách Mời <span className="text-red-500">*</span></label>
-                          <input
-                            id="input-guest-name"
-                            type="text"
-                            required
-                            value={newGuestName}
-                            onChange={(e) => setNewGuestName(e.target.value)}
-                            placeholder="Ví dụ: Chị Lan &amp; Gia đình"
-                            className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl text-xs focus:outline-none focus:border-amber-650 font-medium text-stone-800 shadow-inner"
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <label className="block text-[11px] font-semibold text-stone-600">Số Điện Thoại (Tùy chọn)</label>
-                          <input
-                            id="input-guest-phone"
-                            type="text"
-                            value={newGuestPhone}
-                            onChange={(e) => setNewGuestPhone(e.target.value)}
-                            placeholder="Ví dụ: 0912345678"
-                            className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl text-xs focus:outline-none focus:border-amber-655 font-medium text-stone-800 shadow-inner"
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <label className="block text-[11px] font-semibold text-stone-600">Phía gia đình</label>
-                          <select
-                            id="select-guest-side"
-                            value={newGuestSide}
-                            onChange={(e: any) => setNewGuestSide(e.target.value)}
-                            className="w-full px-3 py-2 bg-white border border-stone-200 focus:border-amber-650 rounded-xl text-xs focus:outline-none text-stone-800"
-                          >
-                            <option value="both">Họ hàng cả Hai bên</option>
-                            <option value="groom">Đại diện Nhà Trai</option>
-                            <option value="bride">Đại diện Nhà Gái</option>
-                          </select>
-                        </div>
+                      <div className="space-y-1.5">
+                        <label className="block text-[11px] font-semibold text-stone-600">Họ &amp; Tên Khách Mời <span className="text-red-500">*</span></label>
+                        <input
+                          id="input-guest-name"
+                          type="text"
+                          required
+                          value={newGuestName}
+                          onChange={(e) => setNewGuestName(e.target.value)}
+                          placeholder="Ví dụ: Chị Lan &amp; Gia đình"
+                          className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl text-xs focus:outline-none focus:border-amber-650 font-medium text-stone-800 shadow-inner"
+                        />
                       </div>
 
                       <div className="flex justify-end gap-2.5 pt-2 border-t border-stone-200/50">
@@ -1102,8 +1064,6 @@ export default function GuestManager() {
                           onClick={() => {
                             setIsAddingGuest(false);
                             setNewGuestName('');
-                            setNewGuestPhone('');
-                            setNewGuestSide('both');
                           }}
                           className="px-4 py-2 border border-stone-300 hover:bg-stone-100 rounded-xl text-xs text-stone-600 font-medium transition-all cursor-pointer"
                         >
@@ -1130,28 +1090,9 @@ export default function GuestManager() {
                         type="text"
                         value={guestsSearchQuery}
                         onChange={(e) => setGuestsSearchQuery(e.target.value)}
-                        placeholder="Tìm kiếm khách mời theo tên, SĐT..."
+                        placeholder="Tìm kiếm khách mời theo tên..."
                         className="w-full pl-9 pr-4 py-2 bg-stone-50 border border-stone-200 focus:border-stone-400 rounded-xl text-xs focus:outline-none text-stone-800"
                       />
-                    </div>
-
-                    {/* Filter selection dropdown */}
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1.5 text-xs text-stone-500">
-                        <Filter className="w-3.5 h-3.5" /> Bộ lọc:
-                      </div>
-
-                      <select
-                        id="select-guests-side-filter"
-                        value={guestsSideFilter}
-                        onChange={(e: any) => setGuestsSideFilter(e.target.value)}
-                        className="px-3.5 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs focus:outline-none text-stone-800"
-                      >
-                        <option value="all">Tất cả khách mời</option>
-                        <option value="both">Họ hàng Hai bên</option>
-                        <option value="groom">Phía Nhà Trai</option>
-                        <option value="bride">Phía Nhà Gái</option>
-                      </select>
                     </div>
                   </div>
 
@@ -1161,8 +1102,6 @@ export default function GuestManager() {
                       <thead>
                         <tr className="bg-stone-50 text-stone-500 border-b border-stone-200 uppercase font-mono tracking-wider">
                           <th className="py-3 px-4 font-normal">Họ Tên Khách</th>
-                          <th className="py-3 px-4 font-normal">SĐT</th>
-                          <th className="py-3 px-4 font-normal">Đại diện</th>
                           <th className="py-3 px-4 font-normal text-center">Lượt xem (Click)</th>
                           <th className="py-3 px-4 font-normal">Xem lần cuối</th>
                           <th className="py-3 px-4 font-normal text-center">Gửi thiệp online</th>
@@ -1172,11 +1111,11 @@ export default function GuestManager() {
                       <tbody className="divide-y divide-stone-200 font-light">
                         {loading ? (
                           <tr>
-                            <td colSpan={7} className="text-center py-8 text-stone-400 font-mono">Đang tải danh sách khách mời...</td>
+                            <td colSpan={5} className="text-center py-8 text-stone-400 font-mono">Đang tải danh sách khách mời...</td>
                           </tr>
                         ) : filteredGuests.length === 0 ? (
                           <tr>
-                            <td colSpan={7} className="text-center py-8 text-stone-400 font-mono">Chưa có khách mời nào trong danh sách. Hãy thêm khách mới ở trên!</td>
+                            <td colSpan={5} className="text-center py-8 text-stone-400 font-mono">Chưa có khách mời nào trong danh sách. Hãy thêm khách mới ở trên!</td>
                           </tr>
                         ) : (
                           filteredGuests.map((g) => {
@@ -1192,24 +1131,6 @@ export default function GuestManager() {
                                 <td className="py-3 px-4">
                                   <div className="font-semibold text-stone-800">{g.name}</div>
                                 </td>
-                                <td className="py-3 px-4 font-mono text-[11px] text-stone-500">
-                                  {g.phone || '—'}
-                                </td>
-                                <td className="py-3 px-4">
-                                  {g.side === 'groom' ? (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                                      Nhà Trai
-                                    </span>
-                                  ) : g.side === 'bride' ? (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-pink-50 text-pink-700 border border-pink-200">
-                                      Nhà Gái
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-stone-100 text-stone-700 border border-stone-200">
-                                      Hai Bên
-                                    </span>
-                                  )}
-                                </td>
                                 <td className="py-3 px-4 text-center">
                                   <div className="flex flex-col items-center justify-center">
                                     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono border ${
@@ -1220,17 +1141,6 @@ export default function GuestManager() {
                                       <Eye className="w-3.5 h-3.5 shrink-0" />
                                       {g.viewsCount} lượt
                                     </span>
-
-                                    {/* Inline view history timeline if views exist */}
-                                    {g.views && g.views.length > 0 && (
-                                      <div className="mt-1.5 max-w-[150px] space-y-0.5 text-[9px] text-stone-400 font-mono text-left max-h-[40px] overflow-y-auto pr-1">
-                                        {g.views.map((vw, vi) => (
-                                          <div key={vi} className="truncate" title={`Xem vào: ${new Date(vw.clickedAt).toLocaleString('vi-VN')} | Thiết bị: ${vw.userAgent}`}>
-                                            • {new Date(vw.clickedAt).toLocaleTimeString('vi-VN')} ({vw.userAgent.includes('iPhone') ? 'iPhone' : vw.userAgent.includes('Android') ? 'Android' : 'PC'})
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
                                   </div>
                                 </td>
                                 <td className="py-3 px-4 font-mono text-[10px] text-stone-500">

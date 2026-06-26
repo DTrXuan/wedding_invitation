@@ -1,12 +1,9 @@
 export interface RSVPSubmission {
   id: string;
   name: string;
-  phone: string;
   attendance: 'yes' | 'no' | 'maybe';
   guestCount: number;
-  side?: 'bride' | 'groom' | 'both';
   wishes: string;
-  dietaryNotes?: string;
   createdAt: any; // Timestamp or ISO string
   respondedAt?: string; // Pretty display string
 }
@@ -72,8 +69,6 @@ export interface ViewSubmission {
 export interface Guest {
   id: string;
   name: string;
-  phone?: string;
-  side?: 'bride' | 'groom' | 'both';
   viewsCount: number;
   lastViewedAt?: any; // Timestamp or ISO string
   views?: Array<{

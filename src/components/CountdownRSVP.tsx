@@ -44,7 +44,6 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
   // Form states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [name, setName] = useState(invitedGuest || '');
-  const [phone, setPhone] = useState('');
   const [attendance, setAttendance] = useState<'yes' | 'no' | 'maybe'>('yes');
   const [guestCount, setGuestCount] = useState<number>(1);
   const [wishes, setWishes] = useState('');
@@ -94,15 +93,16 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
 
     const payload = {
       name: name.trim(),
-      phone: phone.trim(),
       attendance,
       guestCount: attendance === 'yes' ? guestCount : 0,
       wishes: wishes.trim()
     };
 
     try {
-      // Sync or auto-create guest in guests collection
-      await syncGuestFromRSVP(name.trim(), phone.trim(), activeEvent.side || 'both');
+      // Sync or auto-create guest in guests collection (non-blocking, run in background)
+      syncGuestFromRSVP(name.trim()).catch(err => {
+        console.warn("Background guest sync failed:", err);
+      });
 
       if (isFirebaseConfigured && db) {
         // Safe database save on Firestore
@@ -111,7 +111,7 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
           await addDocWithTimeout(collection(db, path), {
             ...payload,
             createdAt: serverTimestamp()
-          }, 4000);
+          }, 10000);
 
           // Concurrently save the wish to the public wishes board if any
           if (wishes.trim()) {
@@ -119,7 +119,7 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
               name: name.trim(),
               wishes: wishes.trim(),
               createdAt: serverTimestamp()
-            }, 4000);
+            }, 10000);
           }
         } catch (error) {
           console.warn("Firestore RSVP save failed, falling back to local storage:", error);
@@ -167,7 +167,6 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
 
   const handleResetForm = () => {
     setName('');
-    setPhone('');
     setAttendance('yes');
     setGuestCount(1);
     setWishes('');

@@ -343,8 +343,6 @@ export async function trackCardView(guestName: string) {
           // If guest does not exist, auto-create them
           await addDocWithTimeout(guestsRef, {
             name: nameToSave,
-            phone: '',
-            side: 'both',
             viewsCount: 1,
             lastViewedAt: serverTimestamp(),
             views: [{
@@ -441,7 +439,7 @@ export function trackLocalGuestView(guestName: string): Guest[] {
   return updatedList;
 }
 
-export async function syncGuestFromRSVP(name: string, phone: string, side: 'bride' | 'groom' | 'both' = 'both') {
+export async function syncGuestFromRSVP(name: string) {
   const nameToSave = name ? name.trim() : '';
   if (!nameToSave) return;
 
@@ -451,22 +449,10 @@ export async function syncGuestFromRSVP(name: string, phone: string, side: 'brid
       const q = query(guestsRef, where('name', '==', nameToSave));
       const querySnapshot = await getDocs(q);
 
-      if (!querySnapshot.empty) {
-        // If guest exists, update phone and side (only if they aren't already set to avoid overwriting)
-        for (const docSnap of querySnapshot.docs) {
-          const guestDocRef = doc(db, 'guests', docSnap.id);
-          const data = docSnap.data();
-          await updateDoc(guestDocRef, {
-            phone: phone ? phone.trim() : (data.phone || ''),
-            side: side || data.side || 'both'
-          });
-        }
-      } else {
+      if (querySnapshot.empty) {
         // If guest is not found, automatically add them to the guests list
         await addDocWithTimeout(guestsRef, {
           name: nameToSave,
-          phone: phone ? phone.trim() : '',
-          side: side || 'both',
           viewsCount: 0,
           views: []
         }, 4000);
@@ -478,11 +464,6 @@ export async function syncGuestFromRSVP(name: string, phone: string, side: 'brid
       const updatedList = list.map(g => {
         if (g.name.trim() === nameToSave) {
           found = true;
-          return {
-            ...g,
-            phone: phone ? phone.trim() : (g.phone || ''),
-            side: side || g.side || 'both'
-          };
         }
         return g;
       });
@@ -491,8 +472,6 @@ export async function syncGuestFromRSVP(name: string, phone: string, side: 'brid
         const newGuest: Guest = {
           id: 'guest_' + Math.random().toString(36).substring(2, 11),
           name: nameToSave,
-          phone: phone ? phone.trim() : '',
-          side: side || 'both',
           viewsCount: 0,
           views: []
         };

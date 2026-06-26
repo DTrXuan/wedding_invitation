@@ -9,10 +9,6 @@
           "type": "string",
           "description": "Tên khách mời"
         },
-        "phone": {
-          "type": "string",
-          "description": "Số điện thoại khách (bảo mật)"
-        },
         "attendance": {
           "type": "string",
           "description": "Trạng thái tham dự: 'yes' (Tham dự), 'no' (Không tham dự), 'maybe' (Có thể)"
@@ -20,14 +16,6 @@
         "guestCount": {
           "type": "integer",
           "description": "Số lượng người đi cùng"
-        },
-        "side": {
-          "type": "string",
-          "description": "Bên phía: 'bride' (Cô dâu), 'groom' (Chú rể), 'both' (Cả hai)"
-        },
-        "dietaryNotes": {
-          "type": "string",
-          "description": "Ghi chú món ăn hoặc yêu cầu đặc biệt"
         },
         "createdAt": {
           "type": "string",
@@ -96,14 +84,6 @@
         "name": {
           "type": "string",
           "description": "Tên khách mời"
-        },
-        "phone": {
-          "type": "string",
-          "description": "Số điện thoại khách mời"
-        },
-        "side": {
-          "type": "string",
-          "description": "Đại diện bên phía gia đình: 'bride', 'groom', 'both'"
         },
         "viewsCount": {
           "type": "integer",

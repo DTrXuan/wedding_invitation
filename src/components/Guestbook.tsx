@@ -97,7 +97,7 @@ export default function Guestbook({ invitedGuest = '' }: GuestbookProps) {
           await addDocWithTimeout(collection(db, path), {
             ...payload,
             createdAt: serverTimestamp()
-          }, 4000);
+          }, 10000);
         } catch (firebaseErr: any) {
           console.warn("Firestore save failed, falling back to local storage backup:", firebaseErr);
           
