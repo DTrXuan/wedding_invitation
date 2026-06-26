@@ -1,7 +1,7 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { 
   Lock, Key, Users, CheckCircle2, XCircle, AlertCircle, 
-  Search, Filter, Trash2, Download, RefreshCw, UserPlus, LogIn, LogOut
+  Search, Filter, Trash2, Download, RefreshCw, UserPlus, LogIn, LogOut, Eye
 } from 'lucide-react';
 
 // Database triggers
@@ -16,6 +16,8 @@ import {
   getLocalWishes,
   saveLocalWish,
   deleteLocalWish,
+  getLocalViews,
+  deleteLocalView,
   handleFirestoreError,
   OperationType
 } from '../firebase';
@@ -28,21 +30,26 @@ import {
   onSnapshot 
 } from 'firebase/firestore';
 import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth';
-import { RSVPSubmission, WishSubmission } from '../types';
+import { RSVPSubmission, WishSubmission, ViewSubmission } from '../types';
+import ShareInvitation from './ShareInvitation';
 
 export default function GuestManager() {
-  const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
+  const [isAdminUnlocked, setIsAdminUnlocked] = useState<boolean>(() => {
+    return localStorage.getItem('wedding_admin_unlocked') === 'true';
+  });
   const [passcode, setPasscode] = useState('');
   const [passcodeError, setPasscodeError] = useState(false);
   
   // Tab alignment
-  const [activeTab, setActiveTab] = useState<'rsvps' | 'wishes'>('rsvps');
+  const [activeTab, setActiveTab] = useState<'rsvps' | 'wishes' | 'views' | 'profile'>('rsvps');
 
   // Data list states
   const [rsvps, setRsvps] = useState<RSVPSubmission[]>([]);
   const [wishes, setWishes] = useState<WishSubmission[]>([]);
+  const [views, setViews] = useState<ViewSubmission[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncCount, setSyncCount] = useState(0);
+  const [isReloading, setIsReloading] = useState(false);
 
   // Authentication state
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -52,6 +59,7 @@ export default function GuestManager() {
   const [sideFilter, setSideFilter] = useState<'all' | 'bride' | 'groom' | 'both'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'yes' | 'no' | 'maybe'>('all');
   const [wishSearchQuery, setWishSearchQuery] = useState('');
+  const [viewSearchQuery, setViewSearchQuery] = useState('');
 
   // Load Auth state
   useEffect(() => {
@@ -61,6 +69,7 @@ export default function GuestManager() {
         // If user is verified admin (matching email Dtruongxuan1397@gmail.com)
         if (user && user.email === 'Dtruongxuan1397@gmail.com') {
           setIsAdminUnlocked(true);
+          localStorage.setItem('wedding_admin_unlocked', 'true');
         }
       });
       return unsubscribe;
@@ -175,12 +184,63 @@ export default function GuestManager() {
     }
   }, [isAdminUnlocked, syncCount]);
 
+  // Fetch or bind Views Analytics
+  useEffect(() => {
+    if (!isAdminUnlocked) return;
+
+    let unsubscribe: (() => void) | undefined;
+
+    if (isFirebaseConfigured && db) {
+      const path = 'views';
+      const viewsRef = collection(db, path);
+      
+      try {
+        unsubscribe = onSnapshot(viewsRef, (snapshot) => {
+          const list: ViewSubmission[] = [];
+          snapshot.forEach((docSnap) => {
+            const d = docSnap.data();
+            list.push({
+              id: docSnap.id,
+              guestName: d.guestName || '',
+              userAgent: d.userAgent || '',
+              clickedAt: d.clickedAt?.toDate ? d.clickedAt.toDate().toISOString() : d.clickedAt || new Date().toISOString()
+            } as ViewSubmission);
+          });
+          
+          // Sort views by clickedAt date descending
+          list.sort((a, b) => new Date(b.clickedAt).getTime() - new Date(a.clickedAt).getTime());
+          setViews(list);
+        }, (error) => {
+          console.warn("Firestore views subscription failed. Falling back to local storage:", error);
+          const localViews = getLocalViews();
+          localViews.sort((a, b) => new Date(b.clickedAt).getTime() - new Date(a.clickedAt).getTime());
+          setViews(localViews);
+        });
+      } catch (err) {
+        console.warn("Error setting up Firestore views subscription. Falling back to local storage:", err);
+        const localViews = getLocalViews();
+        localViews.sort((a, b) => new Date(b.clickedAt).getTime() - new Date(a.clickedAt).getTime());
+        setViews(localViews);
+      }
+
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
+    } else {
+      // Fallback local storage
+      const localViews = getLocalViews();
+      localViews.sort((a, b) => new Date(b.clickedAt).getTime() - new Date(a.clickedAt).getTime());
+      setViews(localViews);
+    }
+  }, [isAdminUnlocked, syncCount]);
+
   // Handle local/passcode sign in
   const handlePasscodeUnlock = (e: FormEvent) => {
     e.preventDefault();
-    if (passcode.trim().toLowerCase() === 'truongxuan2026') {
+    if (passcode.trim().toLowerCase() === '123') {
       setIsAdminUnlocked(true);
       setPasscodeError(false);
+      localStorage.setItem('wedding_admin_unlocked', 'true');
     } else {
       setPasscodeError(true);
     }
@@ -194,6 +254,7 @@ export default function GuestManager() {
       const result = await signInWithPopup(auth, provider);
       if (result.user && result.user.email === 'Dtruongxuan1397@gmail.com') {
         setIsAdminUnlocked(true);
+        localStorage.setItem('wedding_admin_unlocked', 'true');
       } else {
         alert('Tài khoản này không có quyền quản lý đám cưới. Vui lòng đăng nhập với Dtruongxuan1397@gmail.com hoặc sử dụng mã khoá dự phòng.');
         await signOut(auth);
@@ -209,6 +270,7 @@ export default function GuestManager() {
     }
     setIsAdminUnlocked(false);
     setCurrentUser(null);
+    localStorage.removeItem('wedding_admin_unlocked');
   };
 
   // Delete Guest RSVP
@@ -240,6 +302,22 @@ export default function GuestManager() {
     } else {
       const filtered = deleteLocalWish(id);
       setWishes(filtered);
+    }
+  };
+
+  // Delete View Log
+  const handleDeleteView = async (id: string) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa lịch sử click này không?')) return;
+
+    if (isFirebaseConfigured && db) {
+      try {
+        await deleteDoc(doc(db, 'views', id));
+      } catch (err) {
+        alert('Lỗi khi xóa lịch sử click.');
+      }
+    } else {
+      const filtered = deleteLocalView(id);
+      setViews(filtered);
     }
   };
 
@@ -407,7 +485,7 @@ export default function GuestManager() {
                   type="password"
                   value={passcode}
                   onChange={(e) => setPasscode(e.target.value)}
-                  placeholder="Mã khóa (ví dụ: truongxuan2026)"
+                  placeholder="Mã khóa (ví dụ: 123)"
                   className="w-full pl-10 pr-4 py-2.5 bg-white border border-stone-200 focus:border-amber-600 rounded-xl text-xs focus:outline-none font-mono tracking-widest text-center text-stone-850"
                 />
               </div>
@@ -484,6 +562,20 @@ export default function GuestManager() {
 
                 <button
                   type="button"
+                  onClick={() => {
+                    setIsReloading(true);
+                    setSyncCount(c => c + 1);
+                    setTimeout(() => setIsReloading(false), 800);
+                  }}
+                  disabled={isReloading}
+                  className="px-3 py-2 bg-[#8C9C95]/10 hover:bg-[#8C9C95]/20 border border-[#8C9C95]/30 text-[#0B2D1B] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-60"
+                  title="Tải lại toàn bộ dữ liệu từ cơ sở dữ liệu"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isReloading ? 'animate-spin' : ''}`} /> Tải lại dữ liệu
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => { window.location.hash = ''; }}
                   className="px-3 py-2 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
                 >
@@ -501,12 +593,13 @@ export default function GuestManager() {
             </div>
 
             {/* Analytics Stats Cards Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
               {[
                 { label: 'Tổng lượt gửi RSVP', val: totalSubmissions, icon: <Users className="w-5 h-5 text-amber-650" /> },
                 { label: 'Sĩ số sẽ tham gia (ghế)', val: totalSeats, icon: <CheckCircle2 className="w-5 h-5 text-green-600" /> },
                 { label: 'Có thể tham dự', val: attendingMaybe, icon: <AlertCircle className="w-5 h-5 text-amber-600" /> },
-                { label: 'Không thể đến', val: attendingNo, icon: <XCircle className="w-5 h-5 text-red-600" /> }
+                { label: 'Không thể đến', val: attendingNo, icon: <XCircle className="w-5 h-5 text-red-600" /> },
+                { label: 'Lượt click xem thiệp', val: views.length, icon: <Eye className="w-5 h-5 text-indigo-600" /> }
               ].map((stat, idx) => (
                 <div key={idx} className="bg-stone-50 border border-stone-200 rounded-2xl p-4 flex items-center justify-between shadow-xs">
                   <div className="space-y-1.5">
@@ -559,6 +652,28 @@ export default function GuestManager() {
                 }`}
               >
                 Danh sách lời chúc (Wishes)
+              </button>
+              <button
+                id="btn-tab-views"
+                onClick={() => setActiveTab('views')}
+                className={`py-3 px-6 text-xs font-semibold tracking-wider uppercase border-b-2 transition-all cursor-pointer ${
+                  activeTab === 'views'
+                    ? 'border-amber-600 text-amber-650 font-bold'
+                    : 'border-transparent text-stone-500 hover:text-stone-850'
+                }`}
+              >
+                Lượt click xem ({views.length})
+              </button>
+              <button
+                id="btn-tab-profile"
+                onClick={() => setActiveTab('profile')}
+                className={`py-3 px-6 text-xs font-semibold tracking-wider uppercase border-b-2 transition-all cursor-pointer ${
+                  activeTab === 'profile'
+                    ? 'border-amber-600 text-amber-650 font-bold'
+                    : 'border-transparent text-stone-500 hover:text-stone-850'
+                }`}
+              >
+                Bản sắc cá nhân
               </button>
             </div>
 
@@ -797,6 +912,122 @@ export default function GuestManager() {
                   }).length} lời chúc trùng khớp</span>
                   <span>An toàn dữ liệu SSL mã hoá đỉnh cao</span>
                 </div>
+              </div>
+            )}
+
+            {/* List and Filter controls board for Views/Clicks Analytics */}
+            {activeTab === 'views' && (
+              <div className="bg-white border border-stone-200 rounded-3xl p-4 md:p-6 shadow-xs space-y-4">
+                
+                {/* Filter controls row */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  {/* Search field */}
+                  <div className="relative flex-1 max-w-sm">
+                    <Search className="absolute left-3 top-2.5 w-4.5 h-4.5 text-stone-400" />
+                    <input
+                      id="input-search-views"
+                      type="text"
+                      value={viewSearchQuery}
+                      onChange={(e) => setViewSearchQuery(e.target.value)}
+                      placeholder="Tìm kiếm theo tên khách, thiết bị..."
+                      className="w-full pl-9 pr-4 py-2 bg-stone-50 border border-stone-200 focus:border-stone-400 rounded-xl text-xs focus:outline-none text-stone-800"
+                    />
+                  </div>
+                </div>
+
+                {/* Views detailed Table */}
+                <div className="overflow-x-auto rounded-xl border border-stone-200">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-stone-50 text-stone-500 border-b border-stone-200 uppercase font-mono tracking-wider">
+                        <th className="py-3 px-4 font-normal">Tên Khách Mời</th>
+                        <th className="py-3 px-4 font-normal">Thiết bị / Trình duyệt</th>
+                        <th className="py-3 px-4 font-normal">Thời Gian Xem</th>
+                        <th className="py-3 px-4 font-normal text-center">Hành Động</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-200 font-light">
+                      {views.filter(v => {
+                        return v.guestName.toLowerCase().includes(viewSearchQuery.toLowerCase()) ||
+                          v.userAgent.toLowerCase().includes(viewSearchQuery.toLowerCase());
+                      }).length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="text-center py-8 text-stone-400 font-mono">Không tìm thấy lượt click xem nào.</td>
+                        </tr>
+                      ) : (
+                        views
+                          .filter(v => {
+                            return v.guestName.toLowerCase().includes(viewSearchQuery.toLowerCase()) ||
+                              v.userAgent.toLowerCase().includes(viewSearchQuery.toLowerCase());
+                          })
+                          .map((v) => {
+                            // User agent formatting helper
+                            let deviceLabel = 'Thiết bị khác';
+                            const ua = v.userAgent || '';
+                            if (ua.includes('iPhone')) {
+                              deviceLabel = ua.includes('FBAV') || ua.includes('FB_IAB') 
+                                ? 'iPhone (Facebook App)' 
+                                : ua.includes('Zalo') 
+                                ? 'iPhone (Zalo App)' 
+                                : 'iPhone (Safari)';
+                            } else if (ua.includes('Android')) {
+                              deviceLabel = ua.includes('FBAV') || ua.includes('FB_IAB') 
+                                ? 'Android (Facebook)' 
+                                : ua.includes('Zalo') 
+                                ? 'Android (Zalo)' 
+                                : 'Android Phone';
+                            } else if (ua.includes('Macintosh')) {
+                              deviceLabel = 'MacBook / macOS';
+                            } else if (ua.includes('Windows')) {
+                              deviceLabel = 'Windows PC';
+                            }
+
+                            return (
+                              <tr key={v.id} className="hover:bg-stone-50 transition-all text-stone-850">
+                                <td className="py-3 md:py-4 px-4 font-semibold text-stone-800 whitespace-nowrap">
+                                  {v.guestName}
+                                </td>
+                                <td className="py-3 md:py-4 px-4 text-stone-600 font-light max-w-xs truncate" title={v.userAgent}>
+                                  <span className="bg-slate-50 border border-slate-200 text-slate-700 px-2.5 py-1 rounded-lg text-[11px] font-medium font-mono">
+                                    {deviceLabel}
+                                  </span>
+                                </td>
+                                <td className="py-3 md:py-4 px-4 font-mono text-[11px] text-stone-500 whitespace-nowrap">
+                                  {new Date(v.clickedAt).toLocaleString('vi-VN')}
+                                </td>
+                                <td className="py-3 md:py-4 px-4 text-center shrink">
+                                  <button
+                                    id={`btn-delete-view-${v.id}`}
+                                    onClick={() => handleDeleteView(v.id)}
+                                    className="p-1 px-1.5 hover:bg-stone-100 hover:text-red-600 transition-colors rounded-lg text-stone-400"
+                                    title="Xóa lượt click này"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Bottom total status strip */}
+                <div className="flex justify-between items-center text-[11px] text-stone-400 font-mono py-1.5">
+                  <span>Hiện {views.filter(v => {
+                    return v.guestName.toLowerCase().includes(viewSearchQuery.toLowerCase()) ||
+                      v.userAgent.toLowerCase().includes(viewSearchQuery.toLowerCase());
+                  }).length} lượt click xem trùng khớp</span>
+                  <span>Phân tích dữ liệu click thời gian thực</span>
+                </div>
+              </div>
+            )}
+
+            {/* List and Filter controls board for Personal Invitation Creator */}
+            {activeTab === 'profile' && (
+              <div className="bg-white border border-stone-200 rounded-3xl p-2 shadow-xs overflow-hidden">
+                <ShareInvitation />
               </div>
             )}
 

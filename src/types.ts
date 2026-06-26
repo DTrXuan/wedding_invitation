@@ -62,3 +62,11 @@ export interface WishSubmission {
   createdAt: any; // Timestamp or ISO string
 }
 
+export interface ViewSubmission {
+  id: string;
+  guestName: string;
+  userAgent: string;
+  clickedAt: any; // Timestamp or ISO string
+}
+
+

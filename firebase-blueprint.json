@@ -65,6 +65,29 @@
         "name",
         "wishes"
       ]
+    },
+    "View": {
+      "title": "View",
+      "description": "Lịch sử khách mời bấm mở thiệp cưới",
+      "type": "object",
+      "properties": {
+        "guestName": {
+          "type": "string",
+          "description": "Tên khách mời"
+        },
+        "userAgent": {
+          "type": "string",
+          "description": "Trình duyệt hoặc thiết bị"
+        },
+        "clickedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời gian click mở"
+        }
+      },
+      "required": [
+        "clickedAt"
+      ]
     }
   },
   "firestore": {
@@ -75,6 +98,10 @@
     "wishes/{wishId}": {
       "schema": "Wish",
       "description": "Danh sách lời chúc của khách mời"
+    },
+    "views/{viewId}": {
+      "schema": "View",
+      "description": "Lịch sử khách mời mở thiệp"
     }
   }
 }

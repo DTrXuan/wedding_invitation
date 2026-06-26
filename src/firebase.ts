@@ -21,7 +21,8 @@ import {
   query, 
   orderBy, 
   onSnapshot,
-  getDocFromServer
+  getDocFromServer,
+  serverTimestamp
 } from 'firebase/firestore';
 declare const __FIREBASE_APPLET_CONFIG__: {
   projectId?: string;
@@ -33,7 +34,7 @@ declare const __FIREBASE_APPLET_CONFIG__: {
   messagingSenderId?: string;
 };
 
-import { RSVPSubmission, WishSubmission } from './types';
+import { RSVPSubmission, WishSubmission, ViewSubmission } from './types';
 
 // Load values prioritizing Environment Variables, falling back to compile-time injected values
 const activeConfig = {
@@ -217,3 +218,58 @@ export function deleteLocalWish(id: string): WishSubmission[] {
   localStorage.setItem(LOCAL_WISHES_KEY, JSON.stringify(filtered));
   return filtered;
 }
+
+// ---------------- LOCAL VIEWS ANALYTICS ----------------
+const LOCAL_VIEWS_KEY = 'vietnamese_wedding_views_real_v1';
+
+export function getLocalViews(): ViewSubmission[] {
+  const data = localStorage.getItem(LOCAL_VIEWS_KEY);
+  if (!data) {
+    return [];
+  }
+  try {
+    return JSON.parse(data);
+  } catch (e) {
+    return [];
+  }
+}
+
+export function saveLocalView(guestName: string): ViewSubmission {
+  const list = getLocalViews();
+  const newView: ViewSubmission = {
+    id: 'view_' + Math.random().toString(36).substring(2, 11),
+    guestName: guestName || 'Quý khách ẩn danh',
+    userAgent: navigator.userAgent,
+    clickedAt: new Date().toISOString()
+  };
+  list.unshift(newView);
+  localStorage.setItem(LOCAL_VIEWS_KEY, JSON.stringify(list));
+  return newView;
+}
+
+export function deleteLocalView(id: string): ViewSubmission[] {
+  const list = getLocalViews();
+  const filtered = list.filter(v => v.id !== id);
+  localStorage.setItem(LOCAL_VIEWS_KEY, JSON.stringify(filtered));
+  return filtered;
+}
+
+export async function trackCardView(guestName: string) {
+  const nameToSave = guestName ? guestName.trim() : 'Quý khách ẩn danh';
+  try {
+    if (isFirebaseConfigured && db) {
+      await addDoc(collection(db, 'views'), {
+        guestName: nameToSave,
+        userAgent: navigator.userAgent,
+        clickedAt: serverTimestamp()
+      });
+    } else {
+      saveLocalView(nameToSave);
+    }
+  } catch (error) {
+    console.warn("Firestore view tracking failed, falling back to local storage:", error);
+    saveLocalView(nameToSave);
+  }
+}
+
+

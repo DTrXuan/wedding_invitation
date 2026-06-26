@@ -18,6 +18,7 @@ import MusicPlayer from './components/MusicPlayer';
 import LiveSchedule from './components/LiveSchedule';
 import { WeddingCoupleInfo } from './types';
 import OptimizedImage from './components/OptimizedImage';
+import { trackCardView } from './firebase';
 
 export default function App() {
   const [invitedGuest, setInvitedGuest] = useState<string>('');
@@ -87,6 +88,9 @@ export default function App() {
 
   const handleOpenCard = () => {
     setIsCardOpened(true);
+    
+    // Save view click analytics
+    trackCardView(invitedGuest);
 
     // Fire a magnificent celebratory confetti explosion!
     confetti({

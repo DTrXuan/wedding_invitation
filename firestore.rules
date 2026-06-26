@@ -51,6 +51,14 @@ service cloud.firestore {
         && data.wishes is string && data.wishes.size() > 0 && data.wishes.size() <= 2000;
     }
 
+    // Helper to validate view tracking
+    function isValidView(data) {
+      return data.keys().hasAll(['clickedAt'])
+        && data.keys().size() <= 4
+        && data.get('guestName', '') is string
+        && data.get('userAgent', '') is string;
+    }
+
     // Rules for RSVPs collection
     match /rsvps/{rsvpId} {
       // Anyone can create an RSVP (confirm attendance)
@@ -74,6 +82,17 @@ service cloud.firestore {
 
       // Only the Admin can edit or delete wishes (for moderation)
       allow update, delete: if isAdmin();
+    }
+
+    // Rules for Views collection (Analytics)
+    match /views/{viewId} {
+      // Anyone can create a view log
+      allow create: if isValidId(viewId)
+        && isValidView(incoming())
+        && incoming().clickedAt == request.time;
+
+      // Only the Admin can read, update, or delete view logs
+      allow read, update, delete: if isAdmin();
     }
   }
 }
