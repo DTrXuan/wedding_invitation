@@ -42,6 +42,35 @@ import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from
 import { RSVPSubmission, WishSubmission, ViewSubmission, Guest } from '../types';
 import ShareInvitation from './ShareInvitation';
 
+function parseDateTimeString(val: any): string {
+  if (!val) return new Date().toISOString();
+  if (typeof val.toDate === 'function') {
+    try {
+      return val.toDate().toISOString();
+    } catch (e) {
+      // ignore
+    }
+  }
+  if (typeof val === 'string') {
+    return val;
+  }
+  if (val && typeof val === 'object' && typeof val.seconds === 'number') {
+    return new Date(val.seconds * 1000).toISOString();
+  }
+  if (val instanceof Date) {
+    return val.toISOString();
+  }
+  try {
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) {
+      return d.toISOString();
+    }
+  } catch (e) {
+    // ignore
+  }
+  return new Date().toISOString();
+}
+
 export default function GuestManager() {
   const [isAdminUnlocked, setIsAdminUnlocked] = useState<boolean>(() => {
     return localStorage.getItem('wedding_admin_unlocked') === 'true';
@@ -126,7 +155,7 @@ export default function GuestManager() {
               attendance: d.attendance || 'yes',
               guestCount: d.guestCount || 0,
               wishes: d.wishes || '',
-              createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : d.createdAt
+              createdAt: parseDateTimeString(d.createdAt)
             } as RSVPSubmission);
           });
           
@@ -177,7 +206,7 @@ export default function GuestManager() {
               id: docSnap.id,
               name: d.name || '',
               wishes: d.wishes || '',
-              createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : d.createdAt || new Date().toISOString()
+              createdAt: parseDateTimeString(d.createdAt)
             } as WishSubmission);
           });
           
@@ -227,7 +256,7 @@ export default function GuestManager() {
               id: docSnap.id,
               guestName: d.guestName || '',
               userAgent: d.userAgent || '',
-              clickedAt: d.clickedAt?.toDate ? d.clickedAt.toDate().toISOString() : d.clickedAt || new Date().toISOString()
+              clickedAt: parseDateTimeString(d.clickedAt)
             } as ViewSubmission);
           });
           
@@ -277,7 +306,7 @@ export default function GuestManager() {
               id: docSnap.id,
               name: d.name || '',
               viewsCount: d.viewsCount || 0,
-              lastViewedAt: d.lastViewedAt?.toDate ? d.lastViewedAt.toDate().toISOString() : d.lastViewedAt || null,
+              lastViewedAt: d.lastViewedAt ? parseDateTimeString(d.lastViewedAt) : null,
               views: d.views || []
             } as Guest);
           });
@@ -741,12 +770,27 @@ export default function GuestManager() {
                 <h2 className="font-serif text-2xl md:text-3xl font-bold text-stone-900 flex items-center gap-2 mt-1">
                   Đám Cưới Của Trường Xuân &amp; Bích Trâm
                 </h2>
-                <div className="mt-1 flex items-center gap-2 text-xs text-stone-500">
-                  <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
-                  {isFirebaseConfigured ? (
-                    <span>Kết nối Live Firestore: <b className="text-amber-700 font-mono">Bảo mật tối đa</b></span>
-                  ) : (
-                    <span>Môi trường: <b className="text-amber-700 font-mono">Offline Local Storage (Dành cho thử nghiệm)</b></span>
+                <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-2 text-xs text-stone-500">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
+                    {isFirebaseConfigured ? (
+                      currentUser?.email?.toLowerCase() === 'dtruongxuan1397@gmail.com' ? (
+                        <span>Đã kết nối Live Database Cloud ☁️: <b className="text-emerald-700 font-mono">dtruongxuan1397@gmail.com (Google Admin)</b></span>
+                      ) : (
+                        <span>Đã mở khóa nội bộ: <b className="text-amber-700 font-mono">Chỉ hiển thị Offline/Mẫu</b></span>
+                      )
+                    ) : (
+                      <span>Môi trường: <b className="text-amber-700 font-mono">Offline Local Storage (Dành cho thử nghiệm)</b></span>
+                    )}
+                  </div>
+                  {isFirebaseConfigured && currentUser?.email?.toLowerCase() !== 'dtruongxuan1397@gmail.com' && (
+                    <button
+                      id="btn-login-google-header-inline"
+                      onClick={handleGoogleSignIn}
+                      className="text-xs bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      🔑 Đăng nhập Google Admin để tải dữ liệu thật từ Cloud
+                    </button>
                   )}
                 </div>
               </div>
@@ -1048,15 +1092,19 @@ export default function GuestManager() {
                   {/* Views list */}
                   <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
                     {views.filter(v => {
-                      return v.guestName.toLowerCase().includes(viewSearchQuery.toLowerCase()) ||
-                        v.userAgent.toLowerCase().includes(viewSearchQuery.toLowerCase());
+                      const guestName = (v.guestName || '').toLowerCase();
+                      const userAgent = (v.userAgent || '').toLowerCase();
+                      const queryStr = (viewSearchQuery || '').toLowerCase();
+                      return guestName.includes(queryStr) || userAgent.includes(queryStr);
                     }).length === 0 ? (
                       <p className="text-center py-8 text-stone-400 font-mono text-xs">Không tìm thấy lượt click xem nào.</p>
                     ) : (
                       views
                         .filter(v => {
-                          return v.guestName.toLowerCase().includes(viewSearchQuery.toLowerCase()) ||
-                            v.userAgent.toLowerCase().includes(viewSearchQuery.toLowerCase());
+                          const guestName = (v.guestName || '').toLowerCase();
+                          const userAgent = (v.userAgent || '').toLowerCase();
+                          const queryStr = (viewSearchQuery || '').toLowerCase();
+                          return guestName.includes(queryStr) || userAgent.includes(queryStr);
                         })
                         .map((v) => {
                           let deviceLabel = 'Thiết bị khác';
