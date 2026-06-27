@@ -2,7 +2,8 @@ import { useState, useEffect, FormEvent } from 'react';
 import { 
   Lock, Key, Users, CheckCircle2, XCircle, AlertCircle, 
   Search, Filter, Trash2, Download, RefreshCw, UserPlus, LogIn, LogOut, Eye,
-  Plus, Phone, UserCheck, Heart, Share2, Link, Check, Copy, ChevronRight, ExternalLink
+  Plus, Phone, UserCheck, Heart, Share2, Link, Check, Copy, ChevronRight, ExternalLink,
+  Upload, Database
 } from 'lucide-react';
 
 // Database triggers
@@ -116,11 +117,166 @@ export default function GuestManager() {
   const [copiedGuestId, setCopiedGuestId] = useState<string | null>(null);
 
   // Migration states
+  const [migrationSource, setMigrationSource] = useState<'sunny' | 'damcuoi' | 'custom'>('sunny');
+  const [customApiKey, setCustomApiKey] = useState<string>('');
+  const [customAuthDomain, setCustomAuthDomain] = useState<string>('');
+  const [customProjectId, setCustomProjectId] = useState<string>('');
+  const [customStorageBucket, setCustomStorageBucket] = useState<string>('');
+  const [customMessagingSenderId, setCustomMessagingSenderId] = useState<string>('');
+  const [customAppId, setCustomAppId] = useState<string>('');
+  const [customDatabaseId, setCustomDatabaseId] = useState<string>('');
+
   const [isMigrating, setIsMigrating] = useState<boolean>(false);
   const [migrationLogs, setMigrationLogs] = useState<string[]>([]);
   const [migrationError, setMigrationError] = useState<string | null>(null);
   const [migrationSuccess, setMigrationSuccess] = useState<boolean>(false);
   const [migrationPassword, setMigrationPassword] = useState<string>('');
+
+  // JSON Manual backup/restore states
+  const [isImporting, setIsImporting] = useState<boolean>(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<boolean>(false);
+
+  // Manual Export to JSON handler
+  const handleExportJSON = async () => {
+    setIsMigrating(true);
+    setMigrationLogs(['⚡ Bắt đầu xuất dữ liệu lưu trữ thủ công ra file JSON...']);
+    try {
+      const backupData: any = {
+        version: "wedding_backup_v1",
+        exportedAt: new Date().toISOString(),
+        data: {
+          guests: [],
+          rsvps: [],
+          wishes: [],
+          views: []
+        }
+      };
+
+      if (isFirebaseConfigured && db) {
+        setMigrationLogs(prev => [...prev, '☁️ Đang đọc dữ liệu trực tiếp từ các bảng Cloud Firestore...']);
+        
+        const colNames = ['guests', 'rsvps', 'wishes', 'views'];
+        for (const col of colNames) {
+          setMigrationLogs(prev => [...prev, `📥 Đang đọc bộ sưu tập: ${col}...`]);
+          const snapshot = await getDocs(collection(db, col));
+          backupData.data[col] = snapshot.docs.map(docSnap => ({
+            id: docSnap.id,
+            ...docSnap.data()
+          }));
+          setMigrationLogs(prev => [...prev, `✅ Đã đọc ${snapshot.size} tài liệu của ${col}.`]);
+        }
+      } else {
+        setMigrationLogs(prev => [...prev, '💾 Không có kết nối Cloud. Đang đọc dữ liệu từ Local Storage...']);
+        backupData.data.guests = getLocalGuests();
+        backupData.data.rsvps = getLocalRSVPs();
+        backupData.data.wishes = getLocalWishes();
+        backupData.data.views = getLocalViews();
+      }
+
+      const totalDocs = (backupData.data.guests?.length || 0) + 
+                        (backupData.data.rsvps?.length || 0) + 
+                        (backupData.data.wishes?.length || 0) + 
+                        (backupData.data.views?.length || 0);
+
+      setMigrationLogs(prev => [...prev, `📊 Đã nạp thành công tổng cộng ${totalDocs} tài liệu.`]);
+
+      // Download trigger
+      const jsonString = JSON.stringify(backupData, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `dam_cuoi_wedding_backup_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setMigrationLogs(prev => [...prev, '🎉 Tải xuống file JSON sao lưu thành công! Bạn có thể lưu trữ file này để phục vụ chuyển dữ liệu thủ công bất kỳ lúc nào.']);
+      setMigrationSuccess(true);
+    } catch (err: any) {
+      console.error(err);
+      setMigrationLogs(prev => [...prev, `❌ Lỗi xuất dữ liệu: ${err.message}`]);
+      setMigrationError(`Lỗi khi xuất dữ liệu: ${err.message}`);
+    } finally {
+      setIsMigrating(false);
+    }
+  };
+
+  // Manual Import from JSON handler
+  const handleImportJSON = async (file: File) => {
+    setIsMigrating(true);
+    setMigrationLogs(['⚡ Bắt đầu tiến trình khôi phục/nhập dữ liệu từ file JSON...']);
+    setMigrationError(null);
+    setMigrationSuccess(false);
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const jsonText = e.target?.result as string;
+        const backup = JSON.parse(jsonText);
+
+        if (!backup || backup.version !== "wedding_backup_v1" || !backup.data) {
+          throw new Error("Định dạng file JSON không tương thích hoặc không đúng file cấu trúc sao lưu đám cưới!");
+        }
+
+        const data = backup.data;
+        const colNames = ['guests', 'rsvps', 'wishes', 'views'];
+        let totalImported = 0;
+
+        if (isFirebaseConfigured && db) {
+          setMigrationLogs(prev => [...prev, '☁️ Đang kết nối với Cloud Database để tải dữ liệu lên...']);
+          
+          for (const col of colNames) {
+            const list = data[col] || [];
+            if (list.length > 0) {
+              setMigrationLogs(prev => [...prev, `📤 Đang lưu ${list.length} tài liệu vào bộ sưu tập: ${col}...`]);
+              let count = 0;
+              for (const item of list) {
+                const { id, ...docData } = item;
+                if (id) {
+                  await setDoc(doc(db, col, id), docData);
+                  count++;
+                  if (count % 5 === 0 || count === list.length) {
+                    setMigrationLogs(prev => {
+                      const next = [...prev];
+                      next[next.length - 1] = `📤 Tiến trình: Đã ghi ${count}/${list.length} tài liệu của ${col}`;
+                      return next;
+                    });
+                  }
+                }
+              }
+              totalImported += list.length;
+              setMigrationLogs(prev => [...prev, `✅ Bộ sưu tập ${col} đã được cập nhật thành công!`]);
+            }
+          }
+        } else {
+          setMigrationLogs(prev => [...prev, '💾 Không cấu hình Cloud. Đang tiến hành lưu cục bộ vào Local Storage...']);
+          if (data.guests) localStorage.setItem('vietnamese_wedding_guests_real_v1', JSON.stringify(data.guests));
+          if (data.rsvps) localStorage.setItem('vietnamese_wedding_rsvps_real_v1', JSON.stringify(data.rsvps));
+          if (data.wishes) localStorage.setItem('vietnamese_wedding_wishes_real_v1', JSON.stringify(data.wishes));
+          if (data.views) localStorage.setItem('vietnamese_wedding_views_real_v1', JSON.stringify(data.views));
+          totalImported = (data.guests?.length || 0) + (data.rsvps?.length || 0) + (data.wishes?.length || 0) + (data.views?.length || 0);
+        }
+
+        setMigrationLogs(prev => [...prev, `🎉 KHÔI PHỤC THỦ CÔNG HOÀN TẤT! Đã nhập thành công tổng cộng ${totalImported} tài liệu.`]);
+        setMigrationLogs(prev => [...prev, '👉 Vui lòng nhấn nút "Tải lại dữ liệu" ở phía trên để cập nhật danh sách hiển thị mới nhất.']);
+        setMigrationSuccess(true);
+      } catch (err: any) {
+        console.error(err);
+        setMigrationLogs(prev => [...prev, `❌ Lỗi khi đọc và khôi phục dữ liệu: ${err.message}`]);
+        setMigrationError(`Không thể nhập dữ liệu: ${err.message}`);
+      } finally {
+        setIsMigrating(false);
+      }
+    };
+    reader.onerror = () => {
+      setMigrationError("Lỗi hệ thống khi đọc file.");
+      setIsMigrating(false);
+    };
+    reader.readAsText(file);
+  };
 
   // Data migration handler
   const handleDataMigration = async (e: FormEvent) => {
@@ -150,27 +306,61 @@ export default function GuestManager() {
     try {
       const passwordToUse = migrationPassword || adminPassword;
       
-      pushLog('🔑 Đang kết nối tới dự án cũ (sunny-primacy-vgxqk)...');
-      
-      const OLD_FIREBASE_CONFIG = {
-        apiKey: "AIzaSyD_Jf4BNJpt1MzkhwMCugLf7z2cOSuZw5A",
-        authDomain: "sunny-primacy-vgxqk.firebaseapp.com",
-        projectId: "sunny-primacy-vgxqk",
-        storageBucket: "sunny-primacy-vgxqk.firebasestorage.app",
-        messagingSenderId: "1030577931299",
-        appId: "1:1030577931299:web:669a4324f3ec6349ea5d96"
-      };
+      let configToUse: any;
+      let dbIdToUse: string | undefined;
+      let sourceName = '';
 
+      if (migrationSource === 'sunny') {
+        sourceName = 'Dự án tạm (sunny-primacy-vgxqk)';
+        configToUse = {
+          apiKey: "AIzaSyD_Jf4BNJpt1MzkhwMCugLf7z2cOSuZw5A",
+          authDomain: "sunny-primacy-vgxqk.firebaseapp.com",
+          projectId: "sunny-primacy-vgxqk",
+          storageBucket: "sunny-primacy-vgxqk.firebasestorage.app",
+          messagingSenderId: "1030577931299",
+          appId: "1:1030577931299:web:669a4324f3ec6349ea5d96"
+        };
+        dbIdToUse = "ai-studio-thipcitrngxunbch-690599dd-421d-4b5c-bd15-9a21102ee9b1";
+      } else if (migrationSource === 'damcuoi') {
+        sourceName = 'Dự án gốc (dam-cuoi-truong-xuan)';
+        configToUse = {
+          apiKey: "AIzaSyB3bqxaXI6_rJQq1QmW6ezFHXzPM2YPd70",
+          authDomain: "dam-cuoi-truong-xuan.firebaseapp.com",
+          projectId: "dam-cuoi-truong-xuan",
+          storageBucket: "dam-cuoi-truong-xuan.firebasestorage.app",
+          messagingSenderId: "96332517393",
+          appId: "1:96332517393:web:5fe34ea03561634f98a1b0"
+        };
+        dbIdToUse = "ai-studio-thipcitrngxunbch-690599dd-421d-4b5c-bd15-9a21102ee9b1";
+      } else {
+        sourceName = 'Dự án tùy chỉnh';
+        configToUse = {
+          apiKey: customApiKey,
+          authDomain: customAuthDomain,
+          projectId: customProjectId,
+          storageBucket: customStorageBucket,
+          messagingSenderId: customMessagingSenderId,
+          appId: customAppId
+        };
+        dbIdToUse = customDatabaseId || undefined;
+        
+        if (!customApiKey || !customProjectId) {
+          throw new Error('Cấu hình dự án tùy chỉnh phải nhập đầy đủ API Key và Project ID.');
+        }
+      }
+
+      pushLog(`🔑 Đang kết nối tới ${sourceName}...`);
+      
       // Initialize old app
       let oldApp;
       const oldAppName = "old-firebase-app-migration-" + Date.now();
       try {
-        oldApp = initializeApp(OLD_FIREBASE_CONFIG, oldAppName);
+        oldApp = initializeApp(configToUse, oldAppName);
       } catch (err: any) {
         throw new Error('Không thể khởi tạo kết nối dự án cũ: ' + err.message);
       }
 
-      const oldDb = getFirestore(oldApp, "ai-studio-690599dd-421d-4b5c-bd15-9a21102ee9b1");
+      const oldDb = dbIdToUse ? getFirestore(oldApp, dbIdToUse) : getFirestore(oldApp);
       const oldAuth = getAuth(oldApp);
 
       // Authenticate with old app if possible
@@ -1990,59 +2180,207 @@ export default function GuestManager() {
               <div className="bg-white border border-stone-200 rounded-3xl p-6 shadow-xs space-y-6">
                 <div>
                   <h3 className="font-serif text-xl font-bold text-stone-900 flex items-center gap-2">
-                    🔄 Công Cụ Chuyển Toàn Bộ Dữ Liệu Firebase Cloud
+                    🔄 Công Cụ Đồng Bộ & Chuyển Dữ Liệu Firebase Cloud
                   </h3>
                   <p className="text-xs text-stone-500 mt-1">
-                    Chuyển toàn bộ dữ liệu từ dự án cũ (<span className="font-mono text-amber-700 bg-stone-50 px-1.5 py-0.5 rounded border">sunny-primacy-vgxqk</span>) sang dự án mới (<span className="font-mono text-emerald-700 bg-stone-50 px-1.5 py-0.5 rounded border">dam-cuoi-truong-xuan</span>).
+                    Hỗ trợ chuyển tự động từ các dự án Firebase cũ hoặc xuất/nhập sao lưu thủ công bằng file JSON an toàn.
                   </p>
                 </div>
 
-                <div className="p-4 bg-amber-50/50 border border-amber-200/60 rounded-2xl text-xs text-amber-900 leading-relaxed space-y-2">
-                  <p className="font-bold text-amber-950 flex items-center gap-1.5">
-                    ⚠️ Hướng dẫn & Lưu ý quan trọng:
-                  </p>
-                  <ul className="list-disc pl-5 space-y-1 text-stone-700">
-                    <li>Ứng dụng hiện tại đã được hệ thống kết nối tự động tới dự án Firebase mới của bạn: <strong className="text-emerald-800 font-mono">dam-cuoi-truong-xuan</strong>.</li>
-                    <li>Công cụ này sẽ tiến hành đọc dữ liệu từ cả 4 bộ sưu tập: <strong>Khách mời (guests)</strong>, <strong>Xác nhận tham dự (rsvps)</strong>, <strong>Lời chúc (wishes)</strong>, và <strong>Analytics (views)</strong> từ cơ sở dữ liệu cũ để ghi đè/sao chép y nguyên sang cơ sở dữ liệu mới.</li>
-                    <li><strong>Bảo toàn định danh:</strong> Toàn bộ mã ID và thời gian khởi tạo của khách mời, lời chúc sẽ được giữ chính xác 100%.</li>
-                    <li><strong>Bảo mật:</strong> Để đọc được dữ liệu nhạy cảm như danh sách phản hồi từ dự án cũ, bạn nên nhập mật khẩu quản trị viên Firebase của bạn ở dưới để công cụ xác thực.</li>
-                  </ul>
-                </div>
+                {/* Main options split into two columns: Cloud Sync and JSON Manual */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  
+                  {/* Left Column: Cloud-to-Cloud Automatic migration */}
+                  <div className="lg:col-span-7 space-y-4 border-r border-stone-100 pr-0 lg:pr-6">
+                    <h4 className="font-serif text-md font-bold text-stone-800 flex items-center gap-1.5 border-b border-stone-100 pb-2">
+                      <Database className="w-4 h-4 text-amber-600" /> 1. Chuyển Dữ Liệu Cloud-to-Cloud Tự Động
+                    </h4>
 
-                <form onSubmit={handleDataMigration} className="space-y-4 max-w-xl text-left">
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-stone-500 font-bold mb-1">Mật khẩu Firebase Cloud của dtruongxuan1397@gmail.com</label>
-                    <input
-                      type="password"
-                      value={migrationPassword}
-                      onChange={(e) => setMigrationPassword(e.target.value)}
-                      placeholder={adminPassword ? "Sẽ dùng mật khẩu bạn đã đăng nhập ở màn hình trước" : "Nhập mật khẩu Firebase Admin của bạn"}
-                      className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 focus:border-amber-650 focus:bg-white rounded-xl text-xs focus:outline-none text-stone-850 font-mono"
-                    />
-                    <p className="text-[10px] text-stone-400 mt-1">Để trống nếu bạn muốn dùng mật khẩu đã đăng nhập ở phiên làm việc này, hoặc chạy không cần mật khẩu (nếu dữ liệu không bị chặn đọc).</p>
+                    <div className="p-3.5 bg-amber-50/50 border border-amber-200/60 rounded-xl text-xs text-amber-900 leading-relaxed space-y-1">
+                      <p className="font-bold text-amber-950">💡 Cách thức hoạt động:</p>
+                      <p className="text-stone-700">Công cụ sẽ kết nối trực tiếp đến dự án Firebase cũ do bạn chọn dưới đây, tải toàn bộ dữ liệu, và ghi đè chính xác giữ nguyên ID sang cơ sở dữ liệu hiện tại.</p>
+                    </div>
+
+                    <form onSubmit={handleDataMigration} className="space-y-4 text-left">
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-wider text-stone-500 font-bold mb-1.5">Chọn nguồn dữ liệu cũ cần sao chép</label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <button
+                            id="btn-source-sunny"
+                            type="button"
+                            onClick={() => setMigrationSource('sunny')}
+                            className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${migrationSource === 'sunny' ? 'border-amber-500 bg-amber-50/30 text-amber-900 font-bold' : 'border-stone-200 hover:bg-stone-50 text-stone-700'}`}
+                          >
+                            <div className="text-xs">Dự án tạm</div>
+                            <div className="text-[9px] text-stone-400 font-mono mt-0.5">sunny-primacy-vgxqk</div>
+                          </button>
+                          
+                          <button
+                            id="btn-source-damcuoi"
+                            type="button"
+                            onClick={() => setMigrationSource('damcuoi')}
+                            className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${migrationSource === 'damcuoi' ? 'border-amber-500 bg-amber-50/30 text-amber-900 font-bold' : 'border-stone-200 hover:bg-stone-50 text-stone-700'}`}
+                          >
+                            <div className="text-xs">Dự án gốc</div>
+                            <div className="text-[9px] text-stone-400 font-mono mt-0.5">dam-cuoi-truong-xuan</div>
+                          </button>
+
+                          <button
+                            id="btn-source-custom"
+                            type="button"
+                            onClick={() => setMigrationSource('custom')}
+                            className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${migrationSource === 'custom' ? 'border-amber-500 bg-amber-50/30 text-amber-900 font-bold' : 'border-stone-200 hover:bg-stone-50 text-stone-700'}`}
+                          >
+                            <div className="text-xs">Cấu hình khác</div>
+                            <div className="text-[9px] text-stone-400 font-mono mt-0.5">Nhập tay tham số</div>
+                          </button>
+                        </div>
+                      </div>
+
+                      {migrationSource === 'custom' && (
+                        <div className="p-4 bg-stone-50 border border-stone-200 rounded-2xl grid grid-cols-2 gap-3 text-xs">
+                          <div className="col-span-2">
+                            <label className="block text-[10px] text-stone-500 font-bold mb-1">API KEY *</label>
+                            <input
+                              type="text"
+                              value={customApiKey}
+                              onChange={(e) => setCustomApiKey(e.target.value)}
+                              placeholder="AIzaSy..."
+                              className="w-full px-3 py-1.5 border border-stone-200 rounded-lg text-xs font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-stone-500 font-bold mb-1">PROJECT ID *</label>
+                            <input
+                              type="text"
+                              value={customProjectId}
+                              onChange={(e) => setCustomProjectId(e.target.value)}
+                              placeholder="my-wedding-project"
+                              className="w-full px-3 py-1.5 border border-stone-200 rounded-lg text-xs font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-stone-500 font-bold mb-1">DATABASE ID (Nếu có)</label>
+                            <input
+                              type="text"
+                              value={customDatabaseId}
+                              onChange={(e) => setCustomDatabaseId(e.target.value)}
+                              placeholder="(default)"
+                              className="w-full px-3 py-1.5 border border-stone-200 rounded-lg text-xs font-mono"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-[10px] text-stone-500 font-bold mb-1">AUTH DOMAIN</label>
+                            <input
+                              type="text"
+                              value={customAuthDomain}
+                              onChange={(e) => setCustomAuthDomain(e.target.value)}
+                              placeholder="my-wedding-project.firebaseapp.com"
+                              className="w-full px-3 py-1.5 border border-stone-200 rounded-lg text-xs font-mono"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-[10px] text-stone-500 font-bold mb-1">APP ID</label>
+                            <input
+                              type="text"
+                              value={customAppId}
+                              onChange={(e) => setCustomAppId(e.target.value)}
+                              placeholder="1:12345678:web:abcdef"
+                              className="w-full px-3 py-1.5 border border-stone-200 rounded-lg text-xs font-mono"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-wider text-stone-500 font-bold mb-1">Mật khẩu xác thực quyền Admin cũ (Nếu cần)</label>
+                        <input
+                          type="password"
+                          value={migrationPassword}
+                          onChange={(e) => setMigrationPassword(e.target.value)}
+                          placeholder={adminPassword ? "Dùng mật khẩu đăng nhập quản trị hiện tại" : "Nhập mật khẩu Firebase Admin cũ"}
+                          className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 focus:border-amber-650 focus:bg-white rounded-xl text-xs focus:outline-none text-stone-850 font-mono"
+                        />
+                        <p className="text-[10px] text-stone-400 mt-1">Để trống nếu không cài mật khẩu hoặc muốn chạy đọc trực tiếp.</p>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isMigrating}
+                        className={`px-5 py-3 bg-stone-900 hover:bg-stone-800 text-white font-bold rounded-xl text-xs tracking-wider transition-all cursor-pointer flex items-center gap-2 shadow-md ${isMigrating ? 'opacity-75 cursor-wait' : ''}`}
+                      >
+                        {isMigrating ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin text-amber-500" /> ĐANG SAO CHÉP DỮ LIỆU CLOUD...
+                          </>
+                        ) : (
+                          <>
+                            🚀 BẮT ĐẦU ĐỒNG BỘ DỮ LIỆU
+                          </>
+                        )}
+                      </button>
+                    </form>
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={isMigrating}
-                    className={`px-6 py-3 bg-stone-900 hover:bg-stone-800 text-white font-bold rounded-xl text-xs tracking-wider transition-all cursor-pointer flex items-center gap-2 shadow-md ${isMigrating ? 'opacity-75 cursor-wait' : ''}`}
-                  >
-                    {isMigrating ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin text-amber-500" /> ĐANG THỰC HIỆN CHUYỂN DỮ LIỆU...
-                      </>
-                    ) : (
-                      <>
-                        🚀 BẮT ĐẦU CHUYỂN DỮ LIỆU SANG PROJECT MỚI
-                      </>
-                    )}
-                  </button>
-                </form>
+                  {/* Right Column: JSON Manual export/import */}
+                  <div className="lg:col-span-5 space-y-4">
+                    <h4 className="font-serif text-md font-bold text-stone-800 flex items-center gap-1.5 border-b border-stone-100 pb-2">
+                      <Upload className="w-4 h-4 text-emerald-600" /> 2. Chuyển Thủ Công Bằng File JSON
+                    </h4>
 
-                {/* Migration progress logs */}
+                    <div className="p-3.5 bg-emerald-50/50 border border-emerald-200/60 rounded-xl text-xs text-emerald-900 leading-relaxed space-y-2">
+                      <p className="font-bold text-emerald-950">🛠️ Phương án chuyển thủ công 100%:</p>
+                      <ol className="list-decimal pl-4 space-y-1 text-stone-700">
+                        <li>Vào trang quản trị cũ, bấm nút <strong>Xuất dữ liệu dự án cũ ra file JSON</strong> để lưu trữ về máy tính của bạn.</li>
+                        <li>Mở trang quản trị mới, chọn file JSON đó ở khung bên dưới để <strong>Nhập &amp; Khôi phục dữ liệu</strong>.</li>
+                      </ol>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Export action */}
+                      <div className="space-y-1.5">
+                        <label className="block text-[10px] uppercase tracking-wider text-stone-500 font-bold">A. Xuất dữ liệu lưu trữ</label>
+                        <button
+                          id="btn-export-backup-json"
+                          onClick={handleExportJSON}
+                          disabled={isMigrating}
+                          className="w-full py-2.5 bg-stone-50 border border-stone-200 text-stone-700 hover:bg-stone-100 font-bold rounded-xl text-xs transition-all cursor-pointer flex items-center justify-center gap-2"
+                        >
+                          <Download className="w-4 h-4" /> Xuất dữ liệu dự án hiện tại ra file JSON
+                        </button>
+                      </div>
+
+                      {/* Import action */}
+                      <div className="space-y-1.5">
+                        <label className="block text-[10px] uppercase tracking-wider text-stone-500 font-bold">B. Khôi phục từ file backup JSON</label>
+                        <div className="relative border-2 border-dashed border-stone-200 rounded-xl p-4 hover:border-emerald-500 hover:bg-stone-50 transition-all text-center">
+                          <input
+                            id="file-import-json"
+                            type="file"
+                            accept=".json"
+                            disabled={isMigrating}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                handleImportJSON(file);
+                              }
+                            }}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          />
+                          <Upload className="w-6 h-6 text-stone-400 mx-auto mb-1.5" />
+                          <div className="text-xs font-semibold text-stone-700">Nhấp hoặc kéo thả file JSON sao lưu vào đây</div>
+                          <div className="text-[10px] text-stone-400 mt-0.5">Hệ thống sẽ tải và ghi đè danh bạ mời của bạn</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Progress Logs */}
                 {migrationLogs.length > 0 && (
-                  <div className="space-y-2 text-left">
-                    <h4 className="text-xs uppercase tracking-wider font-bold text-stone-600 font-mono">Nhật ký tiến trình chuyển dữ liệu:</h4>
+                  <div className="space-y-2 text-left pt-2 border-t border-stone-100">
+                    <h4 className="text-[10px] uppercase tracking-wider font-bold text-stone-500 font-mono">Nhật ký tiến trình thực hiện:</h4>
                     <div className="bg-stone-900 border border-stone-850 text-stone-300 p-4 rounded-2xl text-xs font-mono h-64 overflow-y-auto space-y-1.5 scrollbar-thin scrollbar-thumb-stone-800">
                       {migrationLogs.map((log, index) => (
                         <div key={index} className={log.startsWith('❌') ? 'text-red-400 font-semibold' : log.startsWith('✅') ? 'text-emerald-400 font-semibold' : log.startsWith('⚡') ? 'text-amber-350' : 'text-stone-300'}>
@@ -2057,8 +2395,8 @@ export default function GuestManager() {
                   <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 flex items-start gap-2.5 text-left">
                     <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                     <div>
-                      <strong className="block text-emerald-900 text-sm mb-1">Sao chép dữ liệu hoàn tất thành công!</strong>
-                      Toàn bộ dữ liệu của bạn đã được chuyển sang dự án mới an toàn. Vui lòng nhấn nút <strong>"Tải lại dữ liệu"</strong> ở phía góc trên bên phải để đồng bộ danh sách hiển thị trên bảng điều khiển.
+                      <strong className="block text-emerald-900 text-sm mb-1">Thao tác hoàn tất thành công!</strong>
+                      Dữ liệu của bạn đã được cập nhật an toàn. Vui lòng nhấn nút <strong>"Tải lại dữ liệu"</strong> ở phía góc trên bên phải để đồng bộ danh sách hiển thị trên bảng điều khiển.
                     </div>
                   </div>
                 )}
@@ -2067,7 +2405,7 @@ export default function GuestManager() {
                   <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-800 flex items-start gap-2.5 text-left">
                     <XCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
                     <div>
-                      <strong className="block text-red-900 text-sm mb-1 font-bold">Quá trình chuyển dữ liệu thất bại:</strong>
+                      <strong className="block text-red-900 text-sm mb-1 font-bold">Thất bại:</strong>
                       {migrationError}
                     </div>
                   </div>
