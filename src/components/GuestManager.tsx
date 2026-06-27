@@ -152,16 +152,25 @@ export default function GuestManager() {
       
       pushLog('🔑 Đang kết nối tới dự án cũ (sunny-primacy-vgxqk)...');
       
+      const OLD_FIREBASE_CONFIG = {
+        apiKey: "AIzaSyD_Jf4BNJpt1MzkhwMCugLf7z2cOSuZw5A",
+        authDomain: "sunny-primacy-vgxqk.firebaseapp.com",
+        projectId: "sunny-primacy-vgxqk",
+        storageBucket: "sunny-primacy-vgxqk.firebasestorage.app",
+        messagingSenderId: "1030577931299",
+        appId: "1:1030577931299:web:669a4324f3ec6349ea5d96"
+      };
+
       // Initialize old app
       let oldApp;
       const oldAppName = "old-firebase-app-migration-" + Date.now();
       try {
-        oldApp = initializeApp(GITHUB_PAGES_FIREBASE_CONFIG, oldAppName);
+        oldApp = initializeApp(OLD_FIREBASE_CONFIG, oldAppName);
       } catch (err: any) {
         throw new Error('Không thể khởi tạo kết nối dự án cũ: ' + err.message);
       }
 
-      const oldDb = getFirestore(oldApp, GITHUB_PAGES_FIREBASE_CONFIG.databaseId);
+      const oldDb = getFirestore(oldApp);
       const oldAuth = getAuth(oldApp);
 
       // Authenticate with old app if possible
