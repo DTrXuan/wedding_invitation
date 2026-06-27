@@ -159,12 +159,26 @@ export default function GuestManager() {
         const colNames = ['guests', 'rsvps', 'wishes', 'views'];
         for (const col of colNames) {
           setMigrationLogs(prev => [...prev, `📥 Đang đọc bộ sưu tập: ${col}...`]);
-          const snapshot = await getDocs(collection(db, col));
-          backupData.data[col] = snapshot.docs.map(docSnap => ({
-            id: docSnap.id,
-            ...docSnap.data()
-          }));
-          setMigrationLogs(prev => [...prev, `✅ Đã đọc ${snapshot.size} tài liệu của ${col}.`]);
+          try {
+            const snapshot = await getDocs(collection(db, col));
+            backupData.data[col] = snapshot.docs.map(docSnap => ({
+              id: docSnap.id,
+              ...docSnap.data()
+            }));
+            setMigrationLogs(prev => [...prev, `✅ Đã đọc ${snapshot.size} tài liệu của ${col}.`]);
+          } catch (err: any) {
+            console.warn(`Could not read ${col} from Cloud:`, err);
+            setMigrationLogs(prev => [...prev, `⚠️ Quyền truy cập trực tiếp bộ sưu tập "${col}" bị từ chối (Yêu cầu Google Admin dtruongxuan1397@gmail.com). Đang trích xuất từ dữ liệu lưu tạm...`]);
+            if (col === 'guests') {
+              backupData.data.guests = guests.length > 0 ? guests.map(g => ({ id: g.id, name: g.name, viewsCount: g.viewsCount, lastViewedAt: g.lastViewedAt, views: g.views })) : getLocalGuests();
+            } else if (col === 'rsvps') {
+              backupData.data.rsvps = rsvps.length > 0 ? rsvps : getLocalRSVPs();
+            } else if (col === 'wishes') {
+              backupData.data.wishes = wishes.length > 0 ? wishes : getLocalWishes();
+            } else if (col === 'views') {
+              backupData.data.views = views.length > 0 ? views : getLocalViews();
+            }
+          }
         }
       } else {
         setMigrationLogs(prev => [...prev, '💾 Không có kết nối Cloud. Đang đọc dữ liệu từ Local Storage...']);
@@ -228,6 +242,7 @@ export default function GuestManager() {
         if (isFirebaseConfigured && db) {
           setMigrationLogs(prev => [...prev, '☁️ Đang kết nối với Cloud Database để tải dữ liệu lên...']);
           
+          let hasWritePermissions = true;
           for (const col of colNames) {
             const list = data[col] || [];
             if (list.length > 0) {
@@ -236,20 +251,40 @@ export default function GuestManager() {
               for (const item of list) {
                 const { id, ...docData } = item;
                 if (id) {
-                  await setDoc(doc(db, col, id), docData);
-                  count++;
-                  if (count % 5 === 0 || count === list.length) {
-                    setMigrationLogs(prev => {
-                      const next = [...prev];
-                      next[next.length - 1] = `📤 Tiến trình: Đã ghi ${count}/${list.length} tài liệu của ${col}`;
-                      return next;
-                    });
+                  try {
+                    await setDoc(doc(db, col, id), docData);
+                    count++;
+                    if (count % 5 === 0 || count === list.length) {
+                      setMigrationLogs(prev => {
+                        const next = [...prev];
+                        next[next.length - 1] = `📤 Tiến trình: Đã ghi ${count}/${list.length} tài liệu của ${col}`;
+                        return next;
+                      });
+                    }
+                  } catch (err: any) {
+                    console.error(`Error saving ${col}/${id} to Firestore:`, err);
+                    hasWritePermissions = false;
+                    break;
                   }
                 }
               }
-              totalImported += list.length;
-              setMigrationLogs(prev => [...prev, `✅ Bộ sưu tập ${col} đã được cập nhật thành công!`]);
+              if (!hasWritePermissions) {
+                setMigrationLogs(prev => [...prev, `⚠️ Ghi dữ liệu bộ sưu tập "${col}" thất bại do thiếu quyền (Yêu cầu Google Admin dtruongxuan1397@gmail.com). Hệ thống sẽ chuyển hướng ghi đè vào Local Storage bộ nhớ máy này.`]);
+                break;
+              }
+              totalImported += count;
+              setMigrationLogs(prev => [...prev, `✅ Bộ sưu tập ${col} đã được cập nhật thành công lên Cloud!`]);
             }
+          }
+
+          if (!hasWritePermissions) {
+            // Fallback to local storage for all remaining data
+            setMigrationLogs(prev => [...prev, '💾 Đang khôi phục cục bộ vào Local Storage...']);
+            if (data.guests) localStorage.setItem('vietnamese_wedding_guests_real_v1', JSON.stringify(data.guests));
+            if (data.rsvps) localStorage.setItem('vietnamese_wedding_rsvps_real_v1', JSON.stringify(data.rsvps));
+            if (data.wishes) localStorage.setItem('vietnamese_wedding_wishes_real_v1', JSON.stringify(data.wishes));
+            if (data.views) localStorage.setItem('vietnamese_wedding_views_real_v1', JSON.stringify(data.views));
+            totalImported = (data.guests?.length || 0) + (data.rsvps?.length || 0) + (data.wishes?.length || 0) + (data.views?.length || 0);
           }
         } else {
           setMigrationLogs(prev => [...prev, '💾 Không cấu hình Cloud. Đang tiến hành lưu cục bộ vào Local Storage...']);
