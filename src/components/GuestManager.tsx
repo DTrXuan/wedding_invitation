@@ -170,7 +170,7 @@ export default function GuestManager() {
         throw new Error('Không thể khởi tạo kết nối dự án cũ: ' + err.message);
       }
 
-      const oldDb = getFirestore(oldApp);
+      const oldDb = getFirestore(oldApp, "ai-studio-690599dd-421d-4b5c-bd15-9a21102ee9b1");
       const oldAuth = getAuth(oldApp);
 
       // Authenticate with old app if possible
