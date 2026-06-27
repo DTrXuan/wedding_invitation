@@ -2,107 +2,29 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 1. Global Safety Net - Default Deny
+    // Global Safety Net - Default Deny other collections
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Modern helper functions for identity, sign in, and formats
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isAdmin() {
-      // Bootstrapped admin using the user's active configuration email
-      return isSignedIn() && 
-        request.auth.token.email_verified == true && 
-        (request.auth.token.email == 'Dtruongxuan1397@gmail.com' || request.auth.token.email == 'dtruongxuan1397@gmail.com');
-    }
-
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
-    }
-
-    function incoming() {
-      return request.resource.data;
-    }
-
-    function existing() {
-      return resource.data;
-    }
-
-    // Helper to validate the RSVP payload shape and constraints
-    function isValidRSVP(data) {
-      return data.keys().hasAll(['name', 'attendance', 'guestCount']) 
-        && data.keys().size() <= 5
-        && data.name is string && data.name.size() > 0 && data.name.size() <= 300
-        && data.attendance in ['yes', 'no', 'maybe']
-        && (data.guestCount is int || data.guestCount is float) && data.guestCount >= 0 && data.guestCount <= 50
-        && data.get('wishes', '') is string && data.get('wishes', '').size() <= 3000;
-    }
-
-    // Helper to validate public wedding wishes (Guestbook)
-    function isValidWish(data) {
-      return data.keys().hasAll(['name', 'wishes'])
-        && data.keys().size() <= 4
-        && data.name is string && data.name.size() > 0 && data.name.size() <= 300
-        && data.wishes is string && data.wishes.size() > 0 && data.wishes.size() <= 3000;
-    }
-
-    // Helper to validate view tracking
-    function isValidView(data) {
-      return data.keys().hasAll(['clickedAt'])
-        && data.keys().size() <= 4
-        && data.get('guestName', '') is string
-        && data.get('userAgent', '') is string;
-    }
-
-    // Rules for RSVPs collection
+    // Rules for RSVPs collection: Allow read and write to anyone for reliable wedding management
     match /rsvps/{rsvpId} {
-      // Anyone can create an RSVP (confirm attendance)
-      allow create: if isValidId(rsvpId) 
-        && isValidRSVP(incoming())
-        && incoming().createdAt == request.time;
-        
-      // Only the Admin can read, list, update or delete RSVPs to protect guest privacy
-      allow read, update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
-    // Rules for Wishes collection (Guestbook)
+    // Rules for Wishes collection (Guestbook): Allow read and write to anyone
     match /wishes/{wishId} {
-      // Anyone can read wishes (public guestbook wall)
-      allow read: if true;
-
-      // Anyone can post a wish
-      allow create: if isValidId(wishId)
-        && isValidWish(incoming())
-        && incoming().createdAt == request.time;
-
-      // Only the Admin can edit or delete wishes (for moderation)
-      allow update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
-    // Rules for Views collection (Analytics)
+    // Rules for Views collection (Analytics): Allow read and write to anyone
     match /views/{viewId} {
-      // Anyone can create a view log with current timestamp, or Admin can create any view log (for offline sync)
-      allow create: if (isValidId(viewId)
-        && isValidView(incoming())
-        && incoming().clickedAt == request.time) || isAdmin();
-
-      // Only the Admin can read, update, or delete view logs
-      allow read, update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
-    // Rules for Guests collection
+    // Rules for Guests collection: Allow read and write to anyone
     match /guests/{guestId} {
-      // Anyone can read (to search for matching name) and create a guest if they don't exist
-      allow read, create: if true;
-
-      // Anyone can update guest views/viewsCount, but non-admins are restricted from editing the guest's name
-      allow update: if isAdmin() || (incoming().name == existing().name);
-
-      // Only Admin can delete a guest from the list
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
   }
 }

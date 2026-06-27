@@ -856,9 +856,8 @@ export default function GuestManager() {
     if (!confirm('Bạn có chắc chắn muốn xóa khách mời này khỏi danh sách không?')) return;
 
     if (isFirebaseConfigured && db) {
-      const isGoogleAdmin = currentUser?.email?.toLowerCase() === 'dtruongxuan1397@gmail.com';
-      if (!isGoogleAdmin) {
-        alert('Tính năng xóa yêu cầu đăng nhập bằng tài khoản Google Admin (dtruongxuan1397@gmail.com).');
+      if (!isAdminUnlocked) {
+        alert('Yêu cầu mở khóa quyền quản lý để thực hiện tính năng này.');
         return;
       }
       try {
@@ -877,9 +876,8 @@ export default function GuestManager() {
     if (!confirm('Bạn có chắc chắn muốn xóa lời chúc này không?')) return;
 
     if (isFirebaseConfigured && db) {
-      const isGoogleAdmin = currentUser?.email?.toLowerCase() === 'dtruongxuan1397@gmail.com';
-      if (!isGoogleAdmin) {
-        alert('Tính năng xóa yêu cầu đăng nhập bằng tài khoản Google Admin (dtruongxuan1397@gmail.com).');
+      if (!isAdminUnlocked) {
+        alert('Yêu cầu mở khóa quyền quản lý để thực hiện tính năng này.');
         return;
       }
       try {
@@ -898,9 +896,8 @@ export default function GuestManager() {
     if (!confirm('Bạn có chắc chắn muốn xóa lịch sử click này không?')) return;
 
     if (isFirebaseConfigured && db) {
-      const isGoogleAdmin = currentUser?.email?.toLowerCase() === 'dtruongxuan1397@gmail.com';
-      if (!isGoogleAdmin) {
-        alert('Tính năng xóa yêu cầu đăng nhập bằng tài khoản Google Admin (dtruongxuan1397@gmail.com).');
+      if (!isAdminUnlocked) {
+        alert('Yêu cầu mở khóa quyền quản lý để thực hiện tính năng này.');
         return;
       }
       try {
@@ -1029,9 +1026,8 @@ export default function GuestManager() {
     if (!confirm('Bạn có chắc chắn muốn xóa khách mời này khỏi danh sách không?')) return;
 
     if (isFirebaseConfigured && db) {
-      const isGoogleAdmin = currentUser?.email?.toLowerCase() === 'dtruongxuan1397@gmail.com';
-      if (!isGoogleAdmin) {
-        alert('Tính năng xóa yêu cầu đăng nhập bằng tài khoản Google Admin (dtruongxuan1397@gmail.com).');
+      if (!isAdminUnlocked) {
+        alert('Yêu cầu mở khóa quyền quản lý để thực hiện tính năng này.');
         return;
       }
       try {
@@ -1390,13 +1386,9 @@ export default function GuestManager() {
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
                     {isFirebaseConfigured ? (
-                      currentUser?.email?.toLowerCase() === 'dtruongxuan1397@gmail.com' ? (
-                        <span>Đã kết nối Live Database Cloud ☁️: <b className="text-emerald-700 font-mono">dtruongxuan1397@gmail.com (Google Admin)</b></span>
-                      ) : (
-                        <span>Đã mở khóa nội bộ: <b className="text-amber-700 font-mono">Chỉ hiển thị Offline/Mẫu</b></span>
-                      )
+                      <span>Đã kết nối Live Database Cloud ☁️: <b className="text-emerald-700 font-mono">dam-cuoi-truong-xuan</b></span>
                     ) : (
-                      <span>Môi trường: <b className="text-amber-700 font-mono">Offline Local Storage (Dành cho thử nghiệm)</b></span>
+                      <span>Môi trường: <b className="text-amber-700 font-mono">Offline Local Storage (Thử nghiệm)</b></span>
                     )}
                   </div>
                   {isFirebaseConfigured && currentUser?.email?.toLowerCase() !== 'dtruongxuan1397@gmail.com' && (

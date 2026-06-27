@@ -1,5 +1,5 @@
 import { useState, useEffect, FormEvent } from 'react';
-import { Calendar, MapPin, Users, Heart, ClipboardCheck, ArrowUpRight, CheckCircle2, Sparkles, Clock, Bell, X, Check } from 'lucide-react';
+import { Calendar, MapPin, Users, Heart, ClipboardCheck, ArrowUpRight, CheckCircle2, Sparkles, Clock, Bell, X, Check, User, MessageSquare, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 
@@ -422,7 +422,8 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
                     {/* Input: Tên của bạn */}
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
-                        <label className="block text-xs font-bold text-stone-700 tracking-wide uppercase">
+                        <label className="text-xs font-bold text-stone-700 tracking-wide uppercase flex items-center gap-1.5">
+                          <User className="w-4 h-4 text-stone-500" />
                           Họ và tên của bạn
                         </label>
                         {name && name === invitedGuest && (
@@ -431,19 +432,25 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
                           </span>
                         )}
                       </div>
-                      <input
-                        type="text"
-                        required
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Ví dụ: Nguyễn Văn A"
-                        className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8C9C95]/20 focus:border-[#8C9C95] font-medium placeholder-stone-400 transition-all text-stone-800"
-                      />
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-400">
+                          <User className="w-5 h-5" />
+                        </div>
+                        <input
+                          type="text"
+                          required
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          placeholder="Ví dụ: Nguyễn Văn A"
+                          className="w-full pl-11 pr-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8C9C95]/20 focus:border-[#8C9C95] font-medium placeholder-stone-400 transition-all text-stone-800"
+                        />
+                      </div>
                     </div>
 
                     {/* Attendance Selection: Bạn sẽ đến chứ? */}
                     <div className="space-y-3">
-                      <label className="block text-xs font-bold text-stone-700 tracking-wide uppercase">
+                      <label className="text-xs font-bold text-stone-700 tracking-wide uppercase flex items-center gap-1.5">
+                        <Heart className="w-4 h-4 text-amber-600 animate-pulse" />
                         Bạn sẽ đến chứ?
                       </label>
                       
@@ -455,9 +462,9 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
                             setAttendance('yes');
                             if (guestCount === 0) setGuestCount(1);
                           }}
-                          className={`flex items-center justify-center gap-2 py-3 rounded-xl text-center transition-all cursor-pointer border ${
+                          className={`flex items-center justify-center gap-2 py-3.5 rounded-xl text-center transition-all cursor-pointer border ${
                             attendance === 'yes'
-                              ? 'border-[#8C9C95] bg-[#8C9C95]/5 text-stone-900 font-bold shadow-xs'
+                              ? 'border-[#8C9C95] bg-[#8C9C95]/5 text-stone-900 font-bold shadow-sm ring-1 ring-[#8C9C95]'
                               : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
                           }`}
                         >
@@ -478,9 +485,9 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
                             setAttendance('no');
                             setGuestCount(0);
                           }}
-                          className={`flex items-center justify-center gap-2 py-3 rounded-xl text-center transition-all cursor-pointer border ${
+                          className={`flex items-center justify-center gap-2 py-3.5 rounded-xl text-center transition-all cursor-pointer border ${
                             attendance === 'no'
-                              ? 'border-rose-300 bg-rose-50/50 text-stone-900 font-bold shadow-xs'
+                              ? 'border-rose-300 bg-rose-50/50 text-stone-900 font-bold shadow-sm ring-1 ring-rose-300'
                               : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
                           }`}
                         >
@@ -502,7 +509,10 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
                         {/* Mobile Optimized Guest Count plus/minus control */}
                         <div className="space-y-2 bg-stone-50 p-4 rounded-2xl border border-stone-200/60">
                           <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-stone-700 tracking-wide uppercase">Số lượng người đi cùng</span>
+                            <span className="text-xs font-bold text-stone-700 tracking-wide uppercase flex items-center gap-1.5">
+                              <Users className="w-4 h-4 text-stone-500" />
+                              Số lượng người đi cùng
+                            </span>
                             <span className="text-xs font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">{guestCount} người</span>
                           </div>
                           <div className="flex items-center justify-center gap-6 py-1">
@@ -510,7 +520,7 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
                               type="button"
                               disabled={guestCount <= 1}
                               onClick={() => setGuestCount(prev => Math.max(1, prev - 1))}
-                              className="w-10 h-10 rounded-full bg-white border border-stone-250 flex items-center justify-center text-stone-600 font-bold hover:bg-stone-100 active:scale-90 transition-all shadow-xs cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
+                              className="w-10 h-10 rounded-full bg-white border border-stone-200 flex items-center justify-center text-stone-600 font-bold hover:bg-stone-100 hover:border-stone-300 active:scale-90 transition-all shadow-sm cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
                             >
                               -
                             </button>
@@ -518,7 +528,7 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
                             <button
                               type="button"
                               onClick={() => setGuestCount(prev => Math.min(10, prev + 1))}
-                              className="w-10 h-10 rounded-full bg-white border border-stone-250 flex items-center justify-center text-stone-600 font-bold hover:bg-stone-100 active:scale-90 transition-all shadow-xs cursor-pointer"
+                              className="w-10 h-10 rounded-full bg-white border border-stone-200 flex items-center justify-center text-stone-600 font-bold hover:bg-stone-100 hover:border-stone-300 active:scale-90 transition-all shadow-sm cursor-pointer"
                             >
                               +
                             </button>
@@ -537,7 +547,17 @@ export default function CountdownRSVP({ weddingDateTimestamp, invitedGuest }: Co
                       disabled={isSubmitting}
                       className="w-full py-4 mt-6 bg-[#0B2D1B] hover:bg-[#071D11] text-amber-100 disabled:bg-stone-300 disabled:text-stone-500 font-sans font-bold rounded-xl text-sm tracking-wide shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
                     >
-                      {isSubmitting ? 'ĐANG GỬI XÁC NHẬN...' : 'Gửi xác nhận'}
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>ĐANG GỬI XÁC NHẬN...</span>
+                        </>
+                      ) : (
+                        <>
+                          <ClipboardCheck className="w-5 h-5" />
+                          <span>Gửi xác nhận</span>
+                        </>
+                      )}
                     </button>
                   </form>
                 ) : (
