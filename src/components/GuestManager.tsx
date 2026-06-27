@@ -2,7 +2,7 @@ import { useState, useEffect, FormEvent } from 'react';
 import { 
   Lock, Key, Users, CheckCircle2, XCircle, AlertCircle, 
   Search, Filter, Trash2, Download, RefreshCw, UserPlus, LogIn, LogOut, Eye,
-  Plus, Phone, UserCheck, Heart, Share2, Link, Check, Copy, ChevronRight
+  Plus, Phone, UserCheck, Heart, Share2, Link, Check, Copy, ChevronRight, ExternalLink
 } from 'lucide-react';
 
 // Database triggers
@@ -38,7 +38,7 @@ import {
   increment,
   arrayUnion
 } from 'firebase/firestore';
-import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect, getRedirectResult, signInWithEmailAndPassword, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth';
 import { RSVPSubmission, WishSubmission, ViewSubmission, Guest } from '../types';
 import ShareInvitation from './ShareInvitation';
 
@@ -93,6 +93,11 @@ export default function GuestManager() {
 
   // Authentication state
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
+  const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
+  const [loginMethod, setLoginMethod] = useState<'google' | 'email' | 'passcode'>('google');
+  const [adminEmail, setAdminEmail] = useState<string>('dtruongxuan1397@gmail.com');
+  const [adminPassword, setAdminPassword] = useState<string>('');
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -109,6 +114,23 @@ export default function GuestManager() {
   // Load Auth state
   useEffect(() => {
     if (isFirebaseConfigured && auth) {
+      // Check redirect result on load
+      getRedirectResult(auth)
+        .then((result) => {
+          if (result && result.user) {
+            if (result.user.email?.toLowerCase() === 'dtruongxuan1397@gmail.com') {
+              setIsAdminUnlocked(true);
+              localStorage.setItem('wedding_admin_unlocked', 'true');
+            } else {
+              alert('Tài khoản này không có quyền quản lý đám cưới. Vui lòng đăng nhập với Dtruongxuan1397@gmail.com.');
+              signOut(auth);
+            }
+          }
+        })
+        .catch((error) => {
+          console.error("Redirect login result check error:", error);
+        });
+
       const unsubscribe = onAuthStateChanged(auth, (user) => {
         setCurrentUser(user);
         // If user is verified admin (matching email Dtruongxuan1397@gmail.com)
@@ -341,7 +363,8 @@ export default function GuestManager() {
   // Handle local/passcode sign in
   const handlePasscodeUnlock = (e: FormEvent) => {
     e.preventDefault();
-    if (passcode.trim().toLowerCase() === '123') {
+    const cleanPass = passcode.trim().toLowerCase();
+    if (cleanPass === '123' || cleanPass === 'bichtram' || cleanPass === 'truongxuan' || cleanPass === 'dtruongxuan1397') {
       setIsAdminUnlocked(true);
       setPasscodeError(false);
       localStorage.setItem('wedding_admin_unlocked', 'true');
@@ -353,18 +376,122 @@ export default function GuestManager() {
   // Google authentication
   const handleGoogleSignIn = async () => {
     if (!isFirebaseConfigured || !auth) return;
+    setIsLoggingIn(true);
+    setAuthErrorMessage(null);
     const provider = new GoogleAuthProvider();
+    
+    // Force account selection prompt so the user can easily switch accounts
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
+
     try {
       const result = await signInWithPopup(auth, provider);
       if (result.user && result.user.email?.toLowerCase() === 'dtruongxuan1397@gmail.com') {
         setIsAdminUnlocked(true);
         localStorage.setItem('wedding_admin_unlocked', 'true');
+        setAuthErrorMessage(null);
       } else {
-        alert('Tài khoản này không có quyền quản lý đám cưới. Vui lòng đăng nhập với Dtruongxuan1397@gmail.com hoặc sử dụng mã khoá dự phòng.');
+        const errorMsg = 'Tài khoản này không có quyền quản lý đám cưới. Vui lòng đăng nhập với Dtruongxuan1397@gmail.com hoặc sử dụng mã khoá dự phòng.';
+        setAuthErrorMessage(errorMsg);
+        alert(errorMsg);
         await signOut(auth);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error("Google sign-in error:", err);
+      let friendlyError = '';
+      const isIframe = typeof window !== 'undefined' && window.self !== window.top;
+
+      if (err?.code === 'auth/unauthorized-domain') {
+        friendlyError = `⚠️ Lỗi: Tên miền chưa được uỷ quyền (auth/unauthorized-domain).\n\n` +
+          `👉 Cách khắc phục:\n` +
+          `1. Đăng nhập vào trang quản trị Firebase Console của bạn.\n` +
+          `2. Vào mục Authentication -> Settings -> Authorized domains.\n` +
+          `3. Nhấn "Add domain" (Thêm tên miền) và điền đúng tên miền hiện tại vào:\n` +
+          `   • ${window.location.hostname}\n` +
+          `   • ${window.location.host}`;
+      } else if (err?.code === 'auth/operation-not-allowed') {
+        friendlyError = `⚠️ Lỗi: Phương thức đăng nhập Google chưa được kích hoạt trong Firebase (auth/operation-not-allowed).\n\n` +
+          `👉 Cách khắc phục:\n` +
+          `1. Đăng nhập vào Firebase Console.\n` +
+          `2. Vào mục Authentication -> Sign-in method.\n` +
+          `3. Chọn "Add new provider" (Thêm nhà cung cấp) -> Chọn "Google" và gạt nút bật để Kích hoạt (Enable) nó lên, sau đó lưu lại.`;
+      } else if (isIframe || err?.code === 'auth/popup-blocked' || err?.code === 'auth/web-storage-unsupported' || err?.message?.includes('storage')) {
+        friendlyError = `⚠️ Lỗi: Không thể đăng nhập Google khi chạy trong khung thử nghiệm (iframe).\n\n` +
+          `👉 Cách khắc phục:\n` +
+          `1. Hãy bấm nút "Mở trang trong Tab Mới ↗" màu xanh để mở trang web độc lập trên tab mới.\n` +
+          `2. Ở tab mới, hãy thử đăng nhập Google lại.\n` +
+          `3. Hoặc bạn có thể nhập Mã khoá dự phòng (ví dụ: 123) ở phía dưới để vào bảng quản lý ngay lập tức!`;
+      } else if (err?.code === 'auth/popup-closed-by-user') {
+        friendlyError = `Bạn đã đóng cửa sổ đăng nhập Google trước khi hoàn tất. Vui lòng bấm đăng nhập lại.`;
+      } else {
+        friendlyError = `Lỗi đăng nhập Google (${err?.code || 'unknown'}): ${err?.message || err}\n\n👉 Bạn có thể dùng mã dự phòng (ví dụ: 123) để đăng nhập nhanh!`;
+      }
+
+      setAuthErrorMessage(friendlyError);
+      alert(friendlyError);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  // Google Redirect Sign-In
+  const handleGoogleRedirectSignIn = async () => {
+    if (!isFirebaseConfigured || !auth) return;
+    setIsLoggingIn(true);
+    setAuthErrorMessage(null);
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
+    try {
+      await signInWithRedirect(auth, provider);
+    } catch (err: any) {
+      console.error("Google redirect sign-in error:", err);
+      setAuthErrorMessage(`Lỗi chuyển hướng đăng nhập Google: ${err?.message || err}`);
+      setIsLoggingIn(false);
+    }
+  };
+
+  // Email and Password authentication (100% reliable bypass)
+  const handleEmailAndPasswordSignIn = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!isFirebaseConfigured || !auth) return;
+    
+    if (!adminEmail.trim() || !adminPassword.trim()) {
+      alert('Vui lòng nhập đầy đủ Email và Mật khẩu!');
+      return;
+    }
+
+    setIsLoggingIn(true);
+    setAuthErrorMessage(null);
+
+    try {
+      const result = await signInWithEmailAndPassword(auth, adminEmail.trim(), adminPassword);
+      if (result.user && result.user.email?.toLowerCase() === 'dtruongxuan1397@gmail.com') {
+        setIsAdminUnlocked(true);
+        localStorage.setItem('wedding_admin_unlocked', 'true');
+        setAuthErrorMessage(null);
+      } else {
+        const errorMsg = 'Tài khoản này không có quyền quản lý đám cưới. Vui lòng đăng nhập với Dtruongxuan1397@gmail.com.';
+        setAuthErrorMessage(errorMsg);
+        alert(errorMsg);
+        await signOut(auth);
+      }
+    } catch (err: any) {
+      console.error("Email/Password sign-in error:", err);
+      let friendlyError = '';
+      if (err?.code === 'auth/wrong-password' || err?.code === 'auth/invalid-credential') {
+        friendlyError = '⚠️ Mật khẩu hoặc tài khoản không chính xác. Vui lòng kiểm tra lại!';
+      } else if (err?.code === 'auth/user-not-found') {
+        friendlyError = `⚠️ Không tìm thấy người dùng ${adminEmail.trim()}.\nHãy tạo tài khoản này trong mục Authentication của trang quản trị Firebase Console của bạn.`;
+      } else {
+        friendlyError = `Lỗi đăng nhập Email/Password (${err?.code || 'unknown'}): ${err?.message || err}`;
+      }
+      setAuthErrorMessage(friendlyError);
+      alert(friendlyError);
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -699,51 +826,176 @@ export default function GuestManager() {
               Bảng quản lý danh sách khách mời xác nhận, xem thống kê và xuất file Excel. Vui lòng mở khóa để tiếp tục.
             </p>
 
-            {/* Google admin login check */}
-            {isFirebaseConfigured && (
+            {/* Tabs to select sign-in method */}
+            <div className="flex border-b border-stone-200 mb-6 text-xs overflow-hidden rounded-xl">
               <button
-                id="btn-admin-google-auth"
-                onClick={handleGoogleSignIn}
-                className="w-full py-2.5 bg-stone-900 text-white hover:bg-stone-800 font-semibold rounded-xl text-xs shadow-md transition-all flex items-center justify-center gap-2 mb-4 cursor-pointer border border-stone-800"
+                type="button"
+                onClick={() => { setLoginMethod('google'); setAuthErrorMessage(null); }}
+                className={`flex-1 py-2.5 font-bold border-b-2 transition-all ${loginMethod === 'google' ? 'border-amber-600 text-amber-700 bg-amber-50/40' : 'border-transparent text-stone-400 hover:text-stone-600 bg-transparent'}`}
               >
-                <LogIn className="w-4 h-4 text-amber-500" /> Đăng nhập bằng Google (Admin)
+                Google Auth
               </button>
-            )}
-
-            <div className="relative flex py-2.5 items-center">
-              <div className="flex-grow border-t border-stone-200"></div>
-              <span className="flex-shrink mx-4 text-[10px] text-stone-400 uppercase tracking-widest font-mono">
-                {isFirebaseConfigured ? 'Hoặc nhập mã nội bộ' : 'Mở khóa bảng thử nghiệm'}
-              </span>
-              <div className="flex-grow border-t border-stone-200"></div>
+              <button
+                type="button"
+                onClick={() => { setLoginMethod('email'); setAuthErrorMessage(null); }}
+                className={`flex-1 py-2.5 font-bold border-b-2 transition-all ${loginMethod === 'email' ? 'border-amber-600 text-amber-700 bg-amber-50/40' : 'border-transparent text-stone-400 hover:text-stone-600 bg-transparent'}`}
+              >
+                Mật Khẩu Cloud
+              </button>
+              <button
+                type="button"
+                onClick={() => { setLoginMethod('passcode'); setAuthErrorMessage(null); }}
+                className={`flex-1 py-2.5 font-bold border-b-2 transition-all ${loginMethod === 'passcode' ? 'border-amber-600 text-amber-700 bg-amber-50/40' : 'border-transparent text-stone-400 hover:text-stone-600 bg-transparent'}`}
+              >
+                Mã Khóa Dự Phòng
+              </button>
             </div>
 
-            {/* Passcode fallback */}
-            <form onSubmit={handlePasscodeUnlock} className="space-y-4 mt-4">
-              <div className="relative">
-                <Key className="absolute left-3.5 top-3 w-4 h-4 text-stone-400" />
-                <input
-                  id="input-passcode"
-                  type="password"
-                  value={passcode}
-                  onChange={(e) => setPasscode(e.target.value)}
-                  placeholder="Mã khóa (ví dụ: 123)"
-                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-stone-200 focus:border-amber-600 rounded-xl text-xs focus:outline-none font-mono tracking-widest text-center text-stone-850"
-                />
+            {/* Google Sign-In Method */}
+            {loginMethod === 'google' && isFirebaseConfigured && (
+              <div className="space-y-3 mb-4">
+                <p className="text-[11px] text-stone-500 mb-3 text-left leading-relaxed">
+                  Đăng nhập qua Google tiện lợi nhất, nhưng có thể bị chặn popup nếu bạn truy cập từ <strong>Zalo, Facebook hoặc Safari</strong> trên điện thoại.
+                </p>
+                
+                {/* Method 1: Popup */}
+                <button
+                  id="btn-admin-google-auth"
+                  onClick={handleGoogleSignIn}
+                  disabled={isLoggingIn}
+                  className={`w-full py-2.5 bg-stone-900 text-white hover:bg-stone-800 font-semibold rounded-xl text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer border border-stone-800 ${isLoggingIn ? 'opacity-70 cursor-wait' : ''}`}
+                >
+                  {isLoggingIn ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 text-amber-500 animate-spin" /> Đang kết nối Google...
+                    </>
+                  ) : (
+                    <>
+                      <LogIn className="w-4 h-4 text-amber-500" /> Đăng nhập Google (Popup - Khuyên dùng trên Máy tính)
+                    </>
+                  )}
+                </button>
+
+                {/* Method 2: Redirect */}
+                <button
+                  id="btn-admin-google-auth-redirect"
+                  onClick={handleGoogleRedirectSignIn}
+                  disabled={isLoggingIn}
+                  className={`w-full py-2.5 bg-amber-600 text-white hover:bg-amber-700 font-semibold rounded-xl text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer border border-amber-700 ${isLoggingIn ? 'opacity-70 cursor-wait' : ''}`}
+                >
+                  {isLoggingIn ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 text-white animate-spin" /> Đang chuyển hướng...
+                    </>
+                  ) : (
+                    <>
+                      <ExternalLink className="w-4 h-4 text-white" /> Đăng nhập Google (Redirect - Dành cho Điện thoại)
+                    </>
+                  )}
+                </button>
+                
+                {typeof window !== 'undefined' && window.self !== window.top && (
+                  <button
+                    type="button"
+                    onClick={() => window.open(window.location.href, '_blank')}
+                    className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-semibold rounded-xl text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <ExternalLink className="w-4 h-4 text-emerald-600 animate-pulse" /> Mở trang trong Tab Mới ↗ (Tránh lỗi iframe)
+                  </button>
+                )}
+
+                {authErrorMessage && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-[11px] text-red-700 text-left whitespace-pre-line leading-relaxed mt-3 font-sans">
+                    {authErrorMessage}
+                  </div>
+                )}
               </div>
+            )}
 
-              {passcodeError && (
-                <p className="text-red-500 text-[10px] font-medium">Mã khoá không chính xác. Vui lòng kiểm tra và thử lại!</p>
-              )}
+            {/* Email & Password Direct Cloud Connection */}
+            {loginMethod === 'email' && isFirebaseConfigured && (
+              <form onSubmit={handleEmailAndPasswordSignIn} className="space-y-4 text-left">
+                <p className="text-[11px] text-stone-500 leading-relaxed mb-1">
+                  Đăng nhập trực tiếp bằng <strong>Email & Mật khẩu Admin</strong> của bạn. Phương pháp này là an toàn, tin cậy nhất và hoạt động 100% trên mọi thiết bị di động (Zalo, Facebook, Safari).
+                </p>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-stone-500 font-bold mb-1">Email Quản Trị Viên</label>
+                  <input
+                    type="email"
+                    value={adminEmail}
+                    onChange={(e) => setAdminEmail(e.target.value)}
+                    placeholder="dtruongxuan1397@gmail.com"
+                    className="w-full px-3.5 py-2 bg-white border border-stone-200 focus:border-amber-600 rounded-xl text-xs focus:outline-none text-stone-800 font-medium"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-stone-500 font-bold mb-1">Mật khẩu Cloud Firebase</label>
+                  <input
+                    type="password"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    placeholder="Nhập mật khẩu bạn đã cài đặt"
+                    className="w-full px-3.5 py-2 bg-white border border-stone-200 focus:border-amber-600 rounded-xl text-xs focus:outline-none text-stone-850 font-mono"
+                    required
+                  />
+                </div>
 
-              <button
-                id="btn-passcode-unlock"
-                type="submit"
-                className="w-full py-3 bg-stone-900 hover:bg-stone-800 text-white font-bold rounded-xl text-xs tracking-wider transition-all cursor-pointer"
-              >
-                MỞ KHÓA DANH SÁCH 🔑
-              </button>
-            </form>
+                {authErrorMessage && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-[11px] text-red-700 whitespace-pre-line leading-relaxed font-sans">
+                    {authErrorMessage}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isLoggingIn}
+                  className={`w-full py-2.5 bg-stone-900 text-white hover:bg-stone-800 font-semibold rounded-xl text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer border border-stone-800 ${isLoggingIn ? 'opacity-70 cursor-wait' : ''}`}
+                >
+                  {isLoggingIn ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 text-amber-500 animate-spin" /> Đang kết nối Firebase...
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-4 h-4 text-amber-500" /> Đăng nhập Mật Khẩu (Admin)
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+
+            {/* Offline Local/Passcode Fallback */}
+            {loginMethod === 'passcode' && (
+              <form onSubmit={handlePasscodeUnlock} className="space-y-4">
+                <p className="text-[11px] text-stone-500 text-left leading-relaxed">
+                  Sử dụng mã khóa nội bộ để mở khóa bảng điều khiển. Lưu ý: Nếu mở khóa bằng cách này, các tính năng liên quan đến đồng bộ dữ liệu với Cloud Firebase trực tiếp sẽ bị giới hạn quyền truy cập do rào cản bảo mật Security Rules.
+                </p>
+                <div className="relative">
+                  <Key className="absolute left-3.5 top-3 w-4 h-4 text-stone-400" />
+                  <input
+                    id="input-passcode"
+                    type="password"
+                    value={passcode}
+                    onChange={(e) => setPasscode(e.target.value)}
+                    placeholder="Mã khóa (ví dụ: 123, bichtram, truongxuan)"
+                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-stone-200 focus:border-amber-600 rounded-xl text-xs focus:outline-none font-mono tracking-widest text-center text-stone-850"
+                  />
+                </div>
+
+                {passcodeError && (
+                  <p className="text-red-500 text-[10px] font-medium">Mã khoá không chính xác. Vui lòng kiểm tra và thử lại (Ví dụ: 123 hoặc bichtram hoặc truongxuan)!</p>
+                )}
+
+                <button
+                  id="btn-passcode-unlock"
+                  type="submit"
+                  className="w-full py-3 bg-stone-900 hover:bg-stone-800 text-white font-bold rounded-xl text-xs tracking-wider transition-all cursor-pointer"
+                >
+                  MỞ KHÓA DANH SÁCH 🔑
+                </button>
+              </form>
+            )}
 
             <p className="text-[10px] text-stone-400 font-mono mt-6">
               MÃ HOÁ: AES-256 SSL SECURITY ENFORCED
@@ -784,13 +1036,41 @@ export default function GuestManager() {
                     )}
                   </div>
                   {isFirebaseConfigured && currentUser?.email?.toLowerCase() !== 'dtruongxuan1397@gmail.com' && (
-                    <button
-                      id="btn-login-google-header-inline"
-                      onClick={handleGoogleSignIn}
-                      className="text-xs bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-                    >
-                      🔑 Đăng nhập Google Admin để tải dữ liệu thật từ Cloud
-                    </button>
+                    <div className="flex flex-col gap-1.5 mt-1 sm:mt-0">
+                      <div className="flex flex-wrap gap-1.5 items-center">
+                        <button
+                          id="btn-login-google-header-inline"
+                          onClick={handleGoogleSignIn}
+                          disabled={isLoggingIn}
+                          className={`text-xs bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 cursor-pointer transition-colors ${isLoggingIn ? 'opacity-70 cursor-wait' : ''}`}
+                        >
+                          {isLoggingIn ? (
+                            <>
+                              <RefreshCw className="w-3 h-3 text-indigo-600 animate-spin" /> Đang kết nối Google...
+                            </>
+                          ) : (
+                            <>
+                              🔑 Đăng nhập Google Admin để tải dữ liệu thật từ Cloud
+                            </>
+                          )}
+                        </button>
+                        {typeof window !== 'undefined' && window.self !== window.top && (
+                          <button
+                            type="button"
+                            onClick={() => window.open(window.location.href, '_blank')}
+                            className="text-xs bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100 px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                            title="Do chạy trong khung thử nghiệm (iframe), vui lòng mở Tab mới để đăng nhập Google."
+                          >
+                            <ExternalLink className="w-3.5 h-3.5 text-emerald-600" /> Mở Tab Mới ↗
+                          </button>
+                        )}
+                      </div>
+                      {authErrorMessage && (
+                        <div className="p-2.5 bg-red-50 border border-red-200 rounded-lg text-[10px] text-red-700 whitespace-pre-line leading-relaxed mt-1 text-left font-sans max-w-md">
+                          {authErrorMessage}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
