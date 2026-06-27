@@ -1363,7 +1363,7 @@ export default function GuestManager() {
               >
                 Bản sắc cá nhân
               </button>
-              {isFirebaseConfigured && currentUser?.email?.toLowerCase() === 'dtruongxuan1397@gmail.com' && (
+              {isFirebaseConfigured && isAdminUnlocked && (
                 <button
                   id="btn-tab-migration"
                   onClick={() => setActiveTab('migration')}
