@@ -10,6 +10,7 @@ import {
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { 
   db, 
+  defaultDb,
   auth, 
   isFirebaseConfigured, 
   getLocalRSVPs, 
@@ -501,18 +502,16 @@ export default function GuestManager() {
     };
   }, []);
 
-  // Fetch or bind RSVPs
+  // Fetch or bind RSVPs with Dual-DB Fallback
   useEffect(() => {
     if (!isAdminUnlocked) return;
 
     setLoading(true);
     let unsubscribe: (() => void) | undefined;
 
-    if (isFirebaseConfigured && db) {
-      // Connect to live Firestore
+    const setupSubscription = (firestoreDbInstance: any, isFallback: boolean) => {
       const path = 'rsvps';
-      const rsvpsRef = collection(db, path);
-      
+      const rsvpsRef = collection(firestoreDbInstance, path);
       try {
         unsubscribe = onSnapshot(rsvpsRef, (snapshot) => {
           const list: RSVPSubmission[] = [];
@@ -528,44 +527,52 @@ export default function GuestManager() {
             } as RSVPSubmission);
           });
           
-          // Sort by date descending
           list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           setRsvps(list);
           setLoading(false);
         }, (error) => {
-          console.warn("Firestore rsvps subscription failed. Falling back to local storage:", error);
+          console.warn(`Firestore rsvps subscription failed (fallback=${isFallback}):`, error);
+          if (!isFallback && defaultDb && defaultDb !== firestoreDbInstance) {
+            setupSubscription(defaultDb, true);
+          } else {
+            const localData = getLocalRSVPs();
+            setRsvps(localData);
+            setLoading(false);
+          }
+        });
+      } catch (err) {
+        console.warn(`Error setting up Firestore rsvps subscription (fallback=${isFallback}):`, err);
+        if (!isFallback && defaultDb && defaultDb !== firestoreDbInstance) {
+          setupSubscription(defaultDb, true);
+        } else {
           const localData = getLocalRSVPs();
           setRsvps(localData);
           setLoading(false);
-        });
-      } catch (err) {
-        console.warn("Error setting up Firestore rsvps subscription. Falling back to local storage:", err);
-        const localData = getLocalRSVPs();
-        setRsvps(localData);
-        setLoading(false);
+        }
       }
+    };
 
+    if (isFirebaseConfigured && db) {
+      setupSubscription(db, false);
       return () => {
         if (unsubscribe) unsubscribe();
       };
     } else {
-      // Fallback local storage
       const localData = getLocalRSVPs();
       setRsvps(localData);
       setLoading(false);
     }
   }, [isAdminUnlocked, syncCount]);
 
-  // Fetch or bind Wishes
+  // Fetch or bind Wishes with Dual-DB Fallback
   useEffect(() => {
     if (!isAdminUnlocked) return;
 
     let unsubscribe: (() => void) | undefined;
 
-    if (isFirebaseConfigured && db) {
+    const setupSubscription = (firestoreDbInstance: any, isFallback: boolean) => {
       const path = 'wishes';
-      const wishesRef = collection(db, path);
-      
+      const wishesRef = collection(firestoreDbInstance, path);
       try {
         unsubscribe = onSnapshot(wishesRef, (snapshot) => {
           const list: WishSubmission[] = [];
@@ -579,43 +586,51 @@ export default function GuestManager() {
             } as WishSubmission);
           });
           
-          // Sort wishes by createdAt date descending
           list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           setWishes(list);
         }, (error) => {
-          console.warn("Firestore wishes subscription failed. Falling back to local storage:", error);
+          console.warn(`Firestore wishes subscription failed (fallback=${isFallback}):`, error);
+          if (!isFallback && defaultDb && defaultDb !== firestoreDbInstance) {
+            setupSubscription(defaultDb, true);
+          } else {
+            const localWishes = getLocalWishes();
+            localWishes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            setWishes(localWishes);
+          }
+        });
+      } catch (err) {
+        console.warn(`Error setting up Firestore wishes subscription (fallback=${isFallback}):`, err);
+        if (!isFallback && defaultDb && defaultDb !== firestoreDbInstance) {
+          setupSubscription(defaultDb, true);
+        } else {
           const localWishes = getLocalWishes();
           localWishes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           setWishes(localWishes);
-        });
-      } catch (err) {
-        console.warn("Error setting up Firestore wishes subscription. Falling back to local storage:", err);
-        const localWishes = getLocalWishes();
-        localWishes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setWishes(localWishes);
+        }
       }
+    };
 
+    if (isFirebaseConfigured && db) {
+      setupSubscription(db, false);
       return () => {
         if (unsubscribe) unsubscribe();
       };
     } else {
-      // Fallback local storage
       const localWishes = getLocalWishes();
       localWishes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setWishes(localWishes);
     }
   }, [isAdminUnlocked, syncCount]);
 
-  // Fetch or bind Views Analytics
+  // Fetch or bind Views Analytics with Dual-DB Fallback
   useEffect(() => {
     if (!isAdminUnlocked) return;
 
     let unsubscribe: (() => void) | undefined;
 
-    if (isFirebaseConfigured && db) {
+    const setupSubscription = (firestoreDbInstance: any, isFallback: boolean) => {
       const path = 'views';
-      const viewsRef = collection(db, path);
-      
+      const viewsRef = collection(firestoreDbInstance, path);
       try {
         unsubscribe = onSnapshot(viewsRef, (snapshot) => {
           const list: ViewSubmission[] = [];
@@ -629,43 +644,51 @@ export default function GuestManager() {
             } as ViewSubmission);
           });
           
-          // Sort views by clickedAt date descending
           list.sort((a, b) => new Date(b.clickedAt).getTime() - new Date(a.clickedAt).getTime());
           setViews(list);
         }, (error) => {
-          console.warn("Firestore views subscription failed. Falling back to local storage:", error);
+          console.warn(`Firestore views subscription failed (fallback=${isFallback}):`, error);
+          if (!isFallback && defaultDb && defaultDb !== firestoreDbInstance) {
+            setupSubscription(defaultDb, true);
+          } else {
+            const localViews = getLocalViews();
+            localViews.sort((a, b) => new Date(b.clickedAt).getTime() - new Date(a.clickedAt).getTime());
+            setViews(localViews);
+          }
+        });
+      } catch (err) {
+        console.warn(`Error setting up Firestore views subscription (fallback=${isFallback}):`, err);
+        if (!isFallback && defaultDb && defaultDb !== firestoreDbInstance) {
+          setupSubscription(defaultDb, true);
+        } else {
           const localViews = getLocalViews();
           localViews.sort((a, b) => new Date(b.clickedAt).getTime() - new Date(a.clickedAt).getTime());
           setViews(localViews);
-        });
-      } catch (err) {
-        console.warn("Error setting up Firestore views subscription. Falling back to local storage:", err);
-        const localViews = getLocalViews();
-        localViews.sort((a, b) => new Date(b.clickedAt).getTime() - new Date(a.clickedAt).getTime());
-        setViews(localViews);
+        }
       }
+    };
 
+    if (isFirebaseConfigured && db) {
+      setupSubscription(db, false);
       return () => {
         if (unsubscribe) unsubscribe();
       };
     } else {
-      // Fallback local storage
       const localViews = getLocalViews();
       localViews.sort((a, b) => new Date(b.clickedAt).getTime() - new Date(a.clickedAt).getTime());
       setViews(localViews);
     }
   }, [isAdminUnlocked, syncCount]);
 
-  // Fetch or bind Guests
+  // Fetch or bind Guests with Dual-DB Fallback
   useEffect(() => {
     if (!isAdminUnlocked) return;
 
     let unsubscribe: (() => void) | undefined;
 
-    if (isFirebaseConfigured && db) {
+    const setupSubscription = (firestoreDbInstance: any, isFallback: boolean) => {
       const path = 'guests';
-      const guestsRef = collection(db, path);
-      
+      const guestsRef = collection(firestoreDbInstance, path);
       try {
         unsubscribe = onSnapshot(guestsRef, (snapshot) => {
           const list: Guest[] = [];
@@ -680,27 +703,36 @@ export default function GuestManager() {
             } as Guest);
           });
           
-          // Sort guests by name
           list.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
           setGuests(list);
         }, (error) => {
-          console.warn("Firestore guests subscription failed. Falling back to local storage:", error);
+          console.warn(`Firestore guests subscription failed (fallback=${isFallback}):`, error);
+          if (!isFallback && defaultDb && defaultDb !== firestoreDbInstance) {
+            setupSubscription(defaultDb, true);
+          } else {
+            const localGuests = getLocalGuests();
+            localGuests.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+            setGuests(localGuests);
+          }
+        });
+      } catch (err) {
+        console.warn(`Error setting up Firestore guests subscription (fallback=${isFallback}):`, err);
+        if (!isFallback && defaultDb && defaultDb !== firestoreDbInstance) {
+          setupSubscription(defaultDb, true);
+        } else {
           const localGuests = getLocalGuests();
           localGuests.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
           setGuests(localGuests);
-        });
-      } catch (err) {
-        console.warn("Error setting up Firestore guests subscription. Falling back to local storage:", err);
-        const localGuests = getLocalGuests();
-        localGuests.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
-        setGuests(localGuests);
+        }
       }
+    };
 
+    if (isFirebaseConfigured && db) {
+      setupSubscription(db, false);
       return () => {
         if (unsubscribe) unsubscribe();
       };
     } else {
-      // Fallback local storage
       const localGuests = getLocalGuests();
       localGuests.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
       setGuests(localGuests);

@@ -46,12 +46,12 @@ import { RSVPSubmission, WishSubmission, ViewSubmission, Guest } from './types';
 // vào đây để khi deploy lên GitHub Pages (hoặc hosting tĩnh khác), ứng dụng vẫn kết nối trực tuyến 
 // tới cơ sở dữ liệu Firebase của bạn thay vì chạy chế độ ngoại tuyến (localStorage).
 export const GITHUB_PAGES_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyB3bqxaXI6_rJQq1QmW6ezFHXzPM2YPd70",
-  authDomain: "dam-cuoi-truong-xuan.firebaseapp.com",
-  projectId: "dam-cuoi-truong-xuan",
-  storageBucket: "dam-cuoi-truong-xuan.firebasestorage.app",
-  messagingSenderId: "96332517393",
-  appId: "1:96332517393:web:5fe34ea03561634f98a1b0",
+  apiKey: "AIzaSyD_Jf4BNJpt1MzkhwMCugLf7z2cOSuZw5A",
+  authDomain: "sunny-primacy-vgxqk.firebaseapp.com",
+  projectId: "sunny-primacy-vgxqk",
+  storageBucket: "sunny-primacy-vgxqk.firebasestorage.app",
+  messagingSenderId: "1030577931299",
+  appId: "1:1030577931299:web:669a4324f3ec6349ea5d96",
   databaseId: "ai-studio-thipcitrngxunbch-690599dd-421d-4b5c-bd15-9a21102ee9b1"
 };
 
@@ -89,8 +89,9 @@ export const isFirebaseConfigured =
   !activeConfig.projectId.includes('placeholder') &&
   activeConfig.projectId !== '';
 
-let firebaseApp;
+let firebaseApp: any;
 let firebaseDb: any = null;
+let firebaseDefaultDb: any = null;
 let firebaseAuth: any = null;
 
 if (isFirebaseConfigured) {
@@ -99,10 +100,21 @@ if (isFirebaseConfigured) {
     console.log('[Firebase Init] Active Project ID:', activeConfig.projectId);
     console.log('[Firebase Init] Resolved Database ID:', activeConfig.firestoreDatabaseId);
     
+    try {
+      firebaseDefaultDb = getFirestore(firebaseApp);
+    } catch (e) {
+      console.warn('[Firebase Init] Failed to init default database:', e);
+    }
+
     if (activeConfig.firestoreDatabaseId && activeConfig.firestoreDatabaseId !== '(default)' && activeConfig.firestoreDatabaseId !== '') {
-      firebaseDb = getFirestore(firebaseApp, activeConfig.firestoreDatabaseId);
+      try {
+        firebaseDb = getFirestore(firebaseApp, activeConfig.firestoreDatabaseId);
+      } catch (dbErr) {
+        console.warn('[Firebase Init] Failed to init custom database, using default instead:', dbErr);
+        firebaseDb = firebaseDefaultDb;
+      }
     } else {
-      firebaseDb = getFirestore(firebaseApp);
+      firebaseDb = firebaseDefaultDb;
     }
     firebaseAuth = getAuth(firebaseApp);
   } catch (error) {
@@ -111,6 +123,7 @@ if (isFirebaseConfigured) {
 }
 
 export const db = firebaseDb;
+export const defaultDb = firebaseDefaultDb;
 export const auth = firebaseAuth;
 
 export enum OperationType {
