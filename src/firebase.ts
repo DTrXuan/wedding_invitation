@@ -46,12 +46,12 @@ import { RSVPSubmission, WishSubmission, ViewSubmission, Guest } from './types';
 // vào đây để khi deploy lên GitHub Pages (hoặc hosting tĩnh khác), ứng dụng vẫn kết nối trực tuyến 
 // tới cơ sở dữ liệu Firebase của bạn thay vì chạy chế độ ngoại tuyến (localStorage).
 export const GITHUB_PAGES_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyD_Jf4BNJpt1MzkhwMCugLf7z2cOSuZw5A",             // Ví dụ: "AIzaSy..."
-  authDomain: "sunny-primacy-vgxqk.firebaseapp.com",         // Ví dụ: "wedding-invitation.firebaseapp.com"
-  projectId: "sunny-primacy-vgxqk",          // Ví dụ: "wedding-invitation"
-  storageBucket: "sunny-primacy-vgxqk.firebasestorage.app",      // Ví dụ: "wedding-invitation.appspot.com"
-  messagingSenderId: "1030577931299",  // Ví dụ: "1234567890"
-  appId: "1:1030577931299:web:669a4324f3ec6349ea5d96",              // Ví dụ: "1:1234567890:web:abcdef..."
+  apiKey: "AIzaSyB3bqxaXI6_rJQq1QmW6ezFHXzPM2YPd70",             // Ví dụ: "AIzaSy..."
+  authDomain: "dam-cuoi-truong-xuan.firebaseapp.com",         // Ví dụ: "wedding-invitation.firebaseapp.com"
+  projectId: "dam-cuoi-truong-xuan",          // Ví dụ: "wedding-invitation"
+  storageBucket: "dam-cuoi-truong-xuan.firebasestorage.app",      // Ví dụ: "wedding-invitation.appspot.com"
+  messagingSenderId: "96332517393",  // Ví dụ: "1234567890"
+  appId: "1:96332517393:web:5fe34ea03561634f98a1b0",              // Ví dụ: "1:1234567890:web:abcdef..."
   databaseId: "ai-studio-thipcitrngxunbch-690599dd-421d-4b5c-bd15-9a21102ee9b1" // ID cơ sở dữ liệu Firestore được chỉ định của bạn
 };
 
@@ -67,7 +67,7 @@ const rawDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID ||
 
 const resolvedDatabaseId = (rawDatabaseId && rawDatabaseId !== '(default)') 
   ? rawDatabaseId 
-  : (activeProjectId === 'sunny-primacy-vgxqk' ? GITHUB_PAGES_FIREBASE_CONFIG.databaseId : '');
+  : GITHUB_PAGES_FIREBASE_CONFIG.databaseId;
 
 const activeConfig = {
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.projectId : '') || GITHUB_PAGES_FIREBASE_CONFIG.projectId || '',
