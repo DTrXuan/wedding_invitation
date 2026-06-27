@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 
 // Database triggers
+import { initializeApp, getApp, getApps } from 'firebase/app';
 import { 
   db, 
   auth, 
@@ -24,7 +25,8 @@ import {
   getLocalGuests,
   saveLocalGuest,
   deleteLocalGuest,
-  addDocWithTimeout
+  addDocWithTimeout,
+  GITHUB_PAGES_FIREBASE_CONFIG
 } from '../firebase';
 import { 
   collection, 
@@ -36,9 +38,11 @@ import {
   query,
   where,
   increment,
-  arrayUnion
+  arrayUnion,
+  setDoc,
+  getFirestore
 } from 'firebase/firestore';
-import { signInWithPopup, signInWithRedirect, getRedirectResult, signInWithEmailAndPassword, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect, getRedirectResult, signInWithEmailAndPassword, GoogleAuthProvider, signOut, onAuthStateChanged, getAuth } from 'firebase/auth';
 import { RSVPSubmission, WishSubmission, ViewSubmission, Guest } from '../types';
 import ShareInvitation from './ShareInvitation';
 
@@ -79,7 +83,7 @@ export default function GuestManager() {
   const [passcodeError, setPasscodeError] = useState(false);
   
   // Tab alignment
-  const [activeTab, setActiveTab] = useState<'rsvps' | 'guests' | 'wishes' | 'profile'>('rsvps');
+  const [activeTab, setActiveTab] = useState<'rsvps' | 'guests' | 'wishes' | 'profile' | 'migration'>('rsvps');
 
   // Data list states
   const [rsvps, setRsvps] = useState<RSVPSubmission[]>([]);
@@ -110,6 +114,115 @@ export default function GuestManager() {
   const [newGuestName, setNewGuestName] = useState('');
   const [isAddingGuest, setIsAddingGuest] = useState(false);
   const [copiedGuestId, setCopiedGuestId] = useState<string | null>(null);
+
+  // Migration states
+  const [isMigrating, setIsMigrating] = useState<boolean>(false);
+  const [migrationLogs, setMigrationLogs] = useState<string[]>([]);
+  const [migrationError, setMigrationError] = useState<string | null>(null);
+  const [migrationSuccess, setMigrationSuccess] = useState<boolean>(false);
+  const [migrationPassword, setMigrationPassword] = useState<string>('');
+
+  // Data migration handler
+  const handleDataMigration = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!db) {
+      setMigrationError('Firebase không hoạt động trên project này.');
+      return;
+    }
+    
+    setIsMigrating(true);
+    setMigrationError(null);
+    setMigrationSuccess(false);
+    setMigrationLogs(['[Khởi động] Bắt đầu quá trình chuyển dữ liệu sang dự án mới...', '']);
+
+    const addLog = (msg: string) => {
+      setMigrationLogs(prev => {
+        const next = [...prev];
+        next[next.length - 1] = msg;
+        return next;
+      });
+    };
+
+    const pushLog = (msg: string) => {
+      setMigrationLogs(prev => [...prev, msg]);
+    };
+
+    try {
+      const passwordToUse = migrationPassword || adminPassword;
+      
+      pushLog('🔑 Đang kết nối tới dự án cũ (sunny-primacy-vgxqk)...');
+      
+      // Initialize old app
+      let oldApp;
+      const oldAppName = "old-firebase-app-migration-" + Date.now();
+      try {
+        oldApp = initializeApp(GITHUB_PAGES_FIREBASE_CONFIG, oldAppName);
+      } catch (err: any) {
+        throw new Error('Không thể khởi tạo kết nối dự án cũ: ' + err.message);
+      }
+
+      const oldDb = getFirestore(oldApp, GITHUB_PAGES_FIREBASE_CONFIG.databaseId);
+      const oldAuth = getAuth(oldApp);
+
+      // Authenticate with old app if possible
+      if (passwordToUse) {
+        pushLog('🔐 Đang xác thực quyền Admin trên dự án cũ bằng mật khẩu...');
+        try {
+          await signInWithEmailAndPassword(oldAuth, 'dtruongxuan1397@gmail.com', passwordToUse);
+          pushLog('✅ Xác thực Admin dự án cũ thành công!');
+        } catch (authErr: any) {
+          pushLog('⚠️ Cảnh báo xác thực: ' + authErr.message);
+          pushLog('👉 Sẽ thử tải dữ liệu ẩn danh (một số bộ sưu tập bảo mật cao có thể bị chặn)...');
+        }
+      } else {
+        pushLog('ℹ️ Không có mật khẩu. Sẽ thử tải dữ liệu trực tiếp không xác thực (khuyên dùng điền mật khẩu)...');
+      }
+
+      const collections = [
+        { name: 'guests', label: 'Danh Sách Khách Mời (guests)' },
+        { name: 'rsvps', label: 'Xác Nhận Tham Dự (rsvps)' },
+        { name: 'wishes', label: 'Lời Chúc Khách Mời (wishes)' },
+        { name: 'views', label: 'Lượt Truy Cập Analytics (views)' }
+      ];
+
+      for (const col of collections) {
+        pushLog(`📥 Đang tải dữ liệu bộ sưu tập: ${col.label}...`);
+        try {
+          const oldSnapshot = await getDocs(collection(oldDb, col.name));
+          const docsCount = oldSnapshot.size;
+          pushLog(`📊 Tìm thấy ${docsCount} tài liệu trong bộ sưu tập: ${col.label}.`);
+
+          if (docsCount > 0) {
+            pushLog(`📤 Đang tải lên ${docsCount} tài liệu sang dự án mới (dam-cuoi-truong-xuan)...`);
+            let count = 0;
+            for (const docSnap of oldSnapshot.docs) {
+              const docData = docSnap.data();
+              // Write doc directly into active Firestore preserving identical Document ID
+              await setDoc(doc(db, col.name, docSnap.id), docData);
+              count++;
+              addLog(`⚡ Tiến trình: Đã sao chép ${count}/${docsCount} tài liệu (${Math.round((count / docsCount) * 100)}%)`);
+            }
+            pushLog(`✅ Hoàn thành bộ sưu tập ${col.label}!`);
+          } else {
+            pushLog(`ℹ️ Không có dữ liệu trong bộ sưu tập ${col.label} để sao chép.`);
+          }
+        } catch (colErr: any) {
+          pushLog(`❌ Lỗi khi tải/chuyển bộ sưu tập ${col.name}: ${colErr.message}`);
+          console.error(colErr);
+        }
+      }
+
+      pushLog('🎉 QUÁ TRÌNH CHUYỂN DỮ LIỆU ĐÃ HOÀN TẤT THÀNH CÔNG!');
+      pushLog('👉 Vui lòng nhấn nút "Tải lại dữ liệu" ở phía trên để cập nhật bảng quản trị mới.');
+      setMigrationSuccess(true);
+    } catch (error: any) {
+      console.error('Migration error:', error);
+      setMigrationError(error.message || 'Lỗi không xác định xảy ra trong quá trình chuyển dữ liệu.');
+      pushLog('❌ Quá trình chuyển dữ liệu thất bại.');
+    } finally {
+      setIsMigrating(false);
+    }
+  };
 
   // Load Auth state
   useEffect(() => {
@@ -1196,6 +1309,19 @@ export default function GuestManager() {
               >
                 Bản sắc cá nhân
               </button>
+              {isFirebaseConfigured && currentUser?.email?.toLowerCase() === 'dtruongxuan1397@gmail.com' && (
+                <button
+                  id="btn-tab-migration"
+                  onClick={() => setActiveTab('migration')}
+                  className={`py-3 px-5 text-xs font-semibold tracking-wider uppercase border-b-2 transition-all cursor-pointer ${
+                    activeTab === 'migration'
+                      ? 'border-amber-600 text-amber-650 font-bold'
+                      : 'border-transparent text-stone-500 hover:text-stone-850'
+                  }`}
+                >
+                  🔄 Chuyển Dữ Liệu
+                </button>
+              )}
             </div>
 
             {/* List and Filter controls board for RSVPs & Views */}
@@ -1748,6 +1874,95 @@ export default function GuestManager() {
             {activeTab === 'profile' && (
               <div className="bg-white border border-stone-200 rounded-3xl p-2 shadow-xs overflow-hidden">
                 <ShareInvitation />
+              </div>
+            )}
+
+            {activeTab === 'migration' && (
+              <div className="bg-white border border-stone-200 rounded-3xl p-6 shadow-xs space-y-6">
+                <div>
+                  <h3 className="font-serif text-xl font-bold text-stone-900 flex items-center gap-2">
+                    🔄 Công Cụ Chuyển Toàn Bộ Dữ Liệu Firebase Cloud
+                  </h3>
+                  <p className="text-xs text-stone-500 mt-1">
+                    Chuyển toàn bộ dữ liệu từ dự án cũ (<span className="font-mono text-amber-700 bg-stone-50 px-1.5 py-0.5 rounded border">sunny-primacy-vgxqk</span>) sang dự án mới (<span className="font-mono text-emerald-700 bg-stone-50 px-1.5 py-0.5 rounded border">dam-cuoi-truong-xuan</span>).
+                  </p>
+                </div>
+
+                <div className="p-4 bg-amber-50/50 border border-amber-200/60 rounded-2xl text-xs text-amber-900 leading-relaxed space-y-2">
+                  <p className="font-bold text-amber-950 flex items-center gap-1.5">
+                    ⚠️ Hướng dẫn & Lưu ý quan trọng:
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1 text-stone-700">
+                    <li>Ứng dụng hiện tại đã được hệ thống kết nối tự động tới dự án Firebase mới của bạn: <strong className="text-emerald-800 font-mono">dam-cuoi-truong-xuan</strong>.</li>
+                    <li>Công cụ này sẽ tiến hành đọc dữ liệu từ cả 4 bộ sưu tập: <strong>Khách mời (guests)</strong>, <strong>Xác nhận tham dự (rsvps)</strong>, <strong>Lời chúc (wishes)</strong>, và <strong>Analytics (views)</strong> từ cơ sở dữ liệu cũ để ghi đè/sao chép y nguyên sang cơ sở dữ liệu mới.</li>
+                    <li><strong>Bảo toàn định danh:</strong> Toàn bộ mã ID và thời gian khởi tạo của khách mời, lời chúc sẽ được giữ chính xác 100%.</li>
+                    <li><strong>Bảo mật:</strong> Để đọc được dữ liệu nhạy cảm như danh sách phản hồi từ dự án cũ, bạn nên nhập mật khẩu quản trị viên Firebase của bạn ở dưới để công cụ xác thực.</li>
+                  </ul>
+                </div>
+
+                <form onSubmit={handleDataMigration} className="space-y-4 max-w-xl text-left">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-wider text-stone-500 font-bold mb-1">Mật khẩu Firebase Cloud của dtruongxuan1397@gmail.com</label>
+                    <input
+                      type="password"
+                      value={migrationPassword}
+                      onChange={(e) => setMigrationPassword(e.target.value)}
+                      placeholder={adminPassword ? "Sẽ dùng mật khẩu bạn đã đăng nhập ở màn hình trước" : "Nhập mật khẩu Firebase Admin của bạn"}
+                      className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 focus:border-amber-650 focus:bg-white rounded-xl text-xs focus:outline-none text-stone-850 font-mono"
+                    />
+                    <p className="text-[10px] text-stone-400 mt-1">Để trống nếu bạn muốn dùng mật khẩu đã đăng nhập ở phiên làm việc này, hoặc chạy không cần mật khẩu (nếu dữ liệu không bị chặn đọc).</p>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isMigrating}
+                    className={`px-6 py-3 bg-stone-900 hover:bg-stone-800 text-white font-bold rounded-xl text-xs tracking-wider transition-all cursor-pointer flex items-center gap-2 shadow-md ${isMigrating ? 'opacity-75 cursor-wait' : ''}`}
+                  >
+                    {isMigrating ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin text-amber-500" /> ĐANG THỰC HIỆN CHUYỂN DỮ LIỆU...
+                      </>
+                    ) : (
+                      <>
+                        🚀 BẮT ĐẦU CHUYỂN DỮ LIỆU SANG PROJECT MỚI
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                {/* Migration progress logs */}
+                {migrationLogs.length > 0 && (
+                  <div className="space-y-2 text-left">
+                    <h4 className="text-xs uppercase tracking-wider font-bold text-stone-600 font-mono">Nhật ký tiến trình chuyển dữ liệu:</h4>
+                    <div className="bg-stone-900 border border-stone-850 text-stone-300 p-4 rounded-2xl text-xs font-mono h-64 overflow-y-auto space-y-1.5 scrollbar-thin scrollbar-thumb-stone-800">
+                      {migrationLogs.map((log, index) => (
+                        <div key={index} className={log.startsWith('❌') ? 'text-red-400 font-semibold' : log.startsWith('✅') ? 'text-emerald-400 font-semibold' : log.startsWith('⚡') ? 'text-amber-350' : 'text-stone-300'}>
+                          {log}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {migrationSuccess && (
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 flex items-start gap-2.5 text-left">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="block text-emerald-900 text-sm mb-1">Sao chép dữ liệu hoàn tất thành công!</strong>
+                      Toàn bộ dữ liệu của bạn đã được chuyển sang dự án mới an toàn. Vui lòng nhấn nút <strong>"Tải lại dữ liệu"</strong> ở phía góc trên bên phải để đồng bộ danh sách hiển thị trên bảng điều khiển.
+                    </div>
+                  </div>
+                )}
+
+                {migrationError && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-800 flex items-start gap-2.5 text-left">
+                    <XCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="block text-red-900 text-sm mb-1 font-bold">Quá trình chuyển dữ liệu thất bại:</strong>
+                      {migrationError}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

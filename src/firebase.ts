@@ -45,7 +45,7 @@ import { RSVPSubmission, WishSubmission, ViewSubmission, Guest } from './types';
 // trên trình duyệt của người dùng cuối, bạn có thể điền thông tin cấu hình Firebase thực tế của bạn 
 // vào đây để khi deploy lên GitHub Pages (hoặc hosting tĩnh khác), ứng dụng vẫn kết nối trực tuyến 
 // tới cơ sở dữ liệu Firebase của bạn thay vì chạy chế độ ngoại tuyến (localStorage).
-const GITHUB_PAGES_FIREBASE_CONFIG = {
+export const GITHUB_PAGES_FIREBASE_CONFIG = {
   apiKey: "AIzaSyD_Jf4BNJpt1MzkhwMCugLf7z2cOSuZw5A",             // Ví dụ: "AIzaSy..."
   authDomain: "sunny-primacy-vgxqk.firebaseapp.com",         // Ví dụ: "wedding-invitation.firebaseapp.com"
   projectId: "sunny-primacy-vgxqk",          // Ví dụ: "wedding-invitation"
@@ -56,14 +56,18 @@ const GITHUB_PAGES_FIREBASE_CONFIG = {
 };
 
 // Load values prioritizing Environment Variables, falling back to compile-time injected values and GITHUB_PAGES_FIREBASE_CONFIG
+const activeProjectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 
+  (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.projectId : '') || 
+  GITHUB_PAGES_FIREBASE_CONFIG.projectId || 
+  '';
+
 const rawDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || 
   (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? (__FIREBASE_APPLET_CONFIG__.firestoreDatabaseId || __FIREBASE_APPLET_CONFIG__.databaseId) : '') || 
-  GITHUB_PAGES_FIREBASE_CONFIG.databaseId || 
   '';
 
 const resolvedDatabaseId = (rawDatabaseId && rawDatabaseId !== '(default)') 
   ? rawDatabaseId 
-  : 'ai-studio-thipcitrngxunbch-690599dd-421d-4b5c-bd15-9a21102ee9b1';
+  : (activeProjectId === 'sunny-primacy-vgxqk' ? GITHUB_PAGES_FIREBASE_CONFIG.databaseId : '');
 
 const activeConfig = {
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.projectId : '') || GITHUB_PAGES_FIREBASE_CONFIG.projectId || '',
