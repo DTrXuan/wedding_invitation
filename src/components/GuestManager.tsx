@@ -902,6 +902,23 @@ export default function GuestManager() {
   const attendingMaybe = rsvps.filter(r => r.attendance === 'maybe').length;
   const attendingNo = rsvps.filter(r => r.attendance === 'no').length;
 
+  // View statistics calculations
+  const totalViewsCount = views.length;
+  const uniqueGuestsViewed = Array.from(new Set(views.map(v => (v.guestName || '').trim()).filter(Boolean))).length;
+  const fbViews = views.filter(v => {
+    const ua = v.userAgent || '';
+    return ua.includes('FBAV') || ua.includes('FB_IAB');
+  }).length;
+  const zaloViews = views.filter(v => {
+    const ua = v.userAgent || '';
+    return ua.includes('Zalo');
+  }).length;
+  const otherViews = totalViewsCount - fbViews - zaloViews;
+
+  const fbPercent = totalViewsCount > 0 ? Math.round((fbViews / totalViewsCount) * 100) : 0;
+  const zaloPercent = totalViewsCount > 0 ? Math.round((zaloViews / totalViewsCount) * 100) : 0;
+  const browserPercent = totalViewsCount > 0 ? Math.round((otherViews / totalViewsCount) * 100) : 0;
+
   // Live filter arrays
   const filteredRSVPs = rsvps.filter(r => {
     const matchesSearch = 
@@ -1245,18 +1262,46 @@ export default function GuestManager() {
             {/* Analytics Stats Cards Grid */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
               {[
-                { label: 'Tổng lượt gửi RSVP', val: totalSubmissions, icon: <Users className="w-5 h-5 text-amber-650" /> },
-                { label: 'Sĩ số sẽ tham gia (ghế)', val: totalSeats, icon: <CheckCircle2 className="w-5 h-5 text-green-600" /> },
-                { label: 'Có thể tham dự', val: attendingMaybe, icon: <AlertCircle className="w-5 h-5 text-amber-600" /> },
-                { label: 'Không thể đến', val: attendingNo, icon: <XCircle className="w-5 h-5 text-red-600" /> },
-                { label: 'Lượt click xem thiệp', val: views.length, icon: <Eye className="w-5 h-5 text-indigo-600" /> }
+                { 
+                  label: 'Tổng lượt gửi RSVP', 
+                  val: totalSubmissions, 
+                  sub: `${rsvps.filter(r => r.attendance === 'yes').length} đồng ý, ${attendingMaybe} có thể`,
+                  icon: <Users className="w-5 h-5 text-amber-650" /> 
+                },
+                { 
+                  label: 'Sĩ số sẽ tham gia (ghế)', 
+                  val: totalSeats, 
+                  sub: 'Dự kiến theo phản hồi',
+                  icon: <CheckCircle2 className="w-5 h-5 text-green-600" /> 
+                },
+                { 
+                  label: 'Có thể tham dự', 
+                  val: attendingMaybe, 
+                  sub: 'Khách đang cân nhắc',
+                  icon: <AlertCircle className="w-5 h-5 text-amber-600" /> 
+                },
+                { 
+                  label: 'Không thể đến', 
+                  val: attendingNo, 
+                  sub: 'Khách cáo lỗi tiếc nuối',
+                  icon: <XCircle className="w-5 h-5 text-red-600" /> 
+                },
+                { 
+                  label: 'Lượt click xem thiệp', 
+                  val: views.length, 
+                  sub: `${uniqueGuestsViewed} khách${getLocalViews().length > 0 ? ` (+${getLocalViews().length} offline)` : ''}`,
+                  icon: <Eye className="w-5 h-5 text-indigo-600" /> 
+                }
               ].map((stat, idx) => (
                 <div key={idx} className="bg-stone-50 border border-stone-200 rounded-2xl p-4 flex items-center justify-between shadow-xs">
-                  <div className="space-y-1.5">
-                    <span className="text-[10px] text-stone-500 uppercase tracking-wider block font-medium leading-none">{stat.label}</span>
-                    <span className="text-2xl font-bold font-mono text-stone-900">{stat.val}</span>
+                  <div className="space-y-1.5 min-w-0">
+                    <span className="text-[10px] text-stone-500 uppercase tracking-wider block font-medium leading-none truncate">{stat.label}</span>
+                    <span className="text-2xl font-bold font-mono text-stone-900 block">{stat.val}</span>
+                    {stat.sub && (
+                      <span className="text-[10px] text-stone-400 block truncate font-light">{stat.sub}</span>
+                    )}
                   </div>
-                  <div className="p-3 bg-white border border-stone-100 rounded-xl shrink-0 shadow-xs">
+                  <div className="p-3 bg-white border border-stone-100 rounded-xl shrink-0 shadow-xs ml-2">
                     {stat.icon}
                   </div>
                 </div>
@@ -1459,11 +1504,66 @@ export default function GuestManager() {
                 {/* Right Column: Lịch sử click xem thiệp (col-span-4) */}
                 <div className="lg:col-span-4 bg-white border border-stone-200 rounded-3xl p-4 md:p-6 shadow-xs space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-serif text-lg font-bold text-stone-900">Lượt click xem thiệp</h4>
+                    <div>
+                      <h4 className="font-serif text-lg font-bold text-stone-900">Lượt click xem thiệp</h4>
+                      <p className="text-[10px] text-stone-400 font-light font-mono mt-0.5">
+                        Tổng {views.length} lượt từ {uniqueGuestsViewed} khách
+                      </p>
+                    </div>
                     <span className="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full font-semibold border border-indigo-150 font-mono">
                       {views.length} lượt
                     </span>
                   </div>
+
+                  {/* Visual Platform Breakdown */}
+                  {totalViewsCount > 0 && (
+                    <div className="p-4 bg-stone-50 border border-stone-200 rounded-2xl space-y-3">
+                      <div className="text-[10px] font-bold text-stone-500 uppercase tracking-wider flex items-center justify-between">
+                        <span>Nguồn truy cập</span>
+                        <span className="font-normal lowercase text-[9px] text-stone-400">(phân tích tự động)</span>
+                      </div>
+                      <div className="space-y-2.5">
+                        {/* Zalo */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px]">
+                            <span className="font-semibold text-stone-700 flex items-center gap-1.5">
+                              <span className="w-2 h-2 bg-blue-500 rounded-full inline-block"></span> Zalo
+                            </span>
+                            <span className="font-mono text-stone-600">{zaloViews} lượt ({zaloPercent}%)</span>
+                          </div>
+                          <div className="w-full bg-stone-200/60 h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-blue-500 h-full rounded-full transition-all duration-500" style={{ width: `${zaloPercent}%` }} />
+                          </div>
+                        </div>
+
+                        {/* Facebook */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px]">
+                            <span className="font-semibold text-stone-700 flex items-center gap-1.5">
+                              <span className="w-2 h-2 bg-indigo-600 rounded-full inline-block"></span> Facebook
+                            </span>
+                            <span className="font-mono text-stone-600">{fbViews} lượt ({fbPercent}%)</span>
+                          </div>
+                          <div className="w-full bg-stone-200/60 h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-indigo-600 h-full rounded-full transition-all duration-500" style={{ width: `${fbPercent}%` }} />
+                          </div>
+                        </div>
+
+                        {/* Direct Browser */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px]">
+                            <span className="font-semibold text-stone-700 flex items-center gap-1.5">
+                              <span className="w-2 h-2 bg-emerald-500 rounded-full inline-block"></span> Trình duyệt riêng
+                            </span>
+                            <span className="font-mono text-stone-600">{otherViews} lượt ({browserPercent}%)</span>
+                          </div>
+                          <div className="w-full bg-stone-200/60 h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${browserPercent}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {isFirebaseConfigured && getLocalViews().length > 0 && (
                     <div className="p-3 bg-indigo-50/50 border border-indigo-100 rounded-2xl flex flex-col gap-2">
@@ -1536,7 +1636,7 @@ export default function GuestManager() {
                           return (
                             <div key={v.id} className="p-3 bg-stone-50 hover:bg-stone-100 rounded-xl border border-stone-200/60 flex items-center justify-between gap-3 text-xs transition-all">
                               <div className="space-y-1 min-w-0 flex-1">
-                                <div className="font-semibold text-stone-850 truncate">{v.guestName}</div>
+                                <div className="font-semibold text-stone-850 truncate">{v.guestName || 'Quý khách ẩn danh'}</div>
                                 <div className="flex flex-wrap items-center gap-1.5">
                                   <span className="bg-slate-100 border border-slate-200 text-slate-700 px-1.5 py-0.5 rounded text-[10px] font-mono">
                                     {deviceLabel}
