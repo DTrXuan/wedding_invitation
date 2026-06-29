@@ -69,7 +69,7 @@ const resolvedDatabaseId = (rawDatabaseId && rawDatabaseId !== '(default)')
   ? rawDatabaseId 
   : GITHUB_PAGES_FIREBASE_CONFIG.databaseId;
 
-const activeConfig = {
+export const activeConfig = {
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.projectId : '') || GITHUB_PAGES_FIREBASE_CONFIG.projectId || '',
   appId: import.meta.env.VITE_FIREBASE_APP_ID || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.appId : '') || GITHUB_PAGES_FIREBASE_CONFIG.appId || '',
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || (typeof __FIREBASE_APPLET_CONFIG__ !== 'undefined' ? __FIREBASE_APPLET_CONFIG__.apiKey : '') || GITHUB_PAGES_FIREBASE_CONFIG.apiKey || '',
@@ -341,21 +341,27 @@ export async function trackCardView(guestName: string) {
       // 2. Log/Update corresponding Guest in guests collection
       if (guestName) {
         const guestsRef = collection(db, 'guests');
-        const q = query(guestsRef, where('name', '==', nameToSave));
-        const querySnapshot = await getDocs(q);
+        const guestsSnapshot = await getDocs(guestsRef);
+        let matchedDocSnap: any = null;
         
-        if (!querySnapshot.empty) {
-          for (const docSnap of querySnapshot.docs) {
-            const guestDocRef = doc(db, 'guests', docSnap.id);
-            await updateDoc(guestDocRef, {
-              viewsCount: increment(1),
-              lastViewedAt: serverTimestamp(),
-              views: arrayUnion({
-                clickedAt: new Date().toISOString(),
-                userAgent: navigator.userAgent
-              })
-            });
+        for (const docSnap of guestsSnapshot.docs) {
+          const gData = docSnap.data();
+          if (gData && gData.name && gData.name.trim().toLowerCase() === nameToSave.toLowerCase()) {
+            matchedDocSnap = docSnap;
+            break;
           }
+        }
+        
+        if (matchedDocSnap) {
+          const guestDocRef = doc(db, 'guests', matchedDocSnap.id);
+          await updateDoc(guestDocRef, {
+            viewsCount: increment(1),
+            lastViewedAt: serverTimestamp(),
+            views: arrayUnion({
+              clickedAt: new Date().toISOString(),
+              userAgent: navigator.userAgent
+            })
+          });
         } else {
           // If guest does not exist, auto-create them
           await addDocWithTimeout(guestsRef, {
@@ -463,10 +469,18 @@ export async function syncGuestFromRSVP(name: string) {
   try {
     if (isFirebaseConfigured && db) {
       const guestsRef = collection(db, 'guests');
-      const q = query(guestsRef, where('name', '==', nameToSave));
-      const querySnapshot = await getDocs(q);
+      const querySnapshot = await getDocs(guestsRef);
+      let found = false;
+      
+      for (const docSnap of querySnapshot.docs) {
+        const gData = docSnap.data();
+        if (gData && gData.name && gData.name.trim().toLowerCase() === nameToSave.toLowerCase()) {
+          found = true;
+          break;
+        }
+      }
 
-      if (querySnapshot.empty) {
+      if (!found) {
         // If guest is not found, automatically add them to the guests list
         await addDocWithTimeout(guestsRef, {
           name: nameToSave,
