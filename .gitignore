@@ -7,7 +7,5 @@ coverage/
 .env*
 !.env.example
 firebase-applet-config.json
-.github/workflows/deploy.yml
+.github/
 package-lock.json
-
-
